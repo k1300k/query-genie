@@ -7,6 +7,7 @@ import { QueryEditorModal } from '@/components/query/QueryEditorModal';
 import { CategoryModal } from '@/components/query/CategoryModal';
 import { useQueryStore } from '@/hooks/useQueryStore';
 import { QueryItem } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { FileText } from 'lucide-react';
@@ -55,19 +56,41 @@ const Index = () => {
   }, [selectedCategoryId, searchQuery, getQueriesByCategory]);
 
   const handleAutoGenerate = async () => {
+    if (!selectedCategory) return;
+    
     setIsGenerating(true);
-    // Mock generation - will be replaced with actual AI call when Cloud is enabled
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const mockGenerated = [
-      { categoryId: selectedCategoryId, text: `${selectedCategory?.name} 관련 새로운 질의어 1`, tags: [selectedCategory?.name || '', 'AI생성'], source: 'generated' as const, status: 'active' as const },
-      { categoryId: selectedCategoryId, text: `${selectedCategory?.name} 데이터 조회 요청`, tags: [selectedCategory?.name || '', '조회'], source: 'generated' as const, status: 'active' as const },
-      { categoryId: selectedCategoryId, text: `현재 ${selectedCategory?.name} 상태 알려줘`, tags: [selectedCategory?.name || '', '상태'], source: 'generated' as const, status: 'active' as const },
-    ];
-    
-    addQueries(mockGenerated);
-    setIsGenerating(false);
-    toast.success(`${mockGenerated.length}개의 질의어가 생성되었습니다`);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-queries', {
+        body: {
+          categoryId: selectedCategoryId,
+          categoryName: selectedCategory.name,
+          count: 5,
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      const generatedQueries = data.data.map((q: { text: string; tags: string[] }) => ({
+        categoryId: selectedCategoryId,
+        text: q.text,
+        tags: q.tags,
+        source: 'generated' as const,
+        status: 'active' as const,
+      }));
+
+      addQueries(generatedQueries);
+      toast.success(`${generatedQueries.length}개의 질의어가 AI로 생성되었습니다`);
+    } catch (error) {
+      console.error('Generation error:', error);
+      toast.error('질의어 생성 중 오류가 발생했습니다');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleEditQuery = (query: QueryItem) => {
