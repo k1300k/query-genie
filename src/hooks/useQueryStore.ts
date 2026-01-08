@@ -103,8 +103,58 @@ export function useQueryStore() {
     }
   }, [queries]);
 
-  const importQueries = useCallback((data: QueryItem[]) => {
-    setQueries(prev => [...prev, ...data]);
+  const importQueriesFromCSV = useCallback((csvContent: string) => {
+    const lines = csvContent.trim().split('\n');
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',');
+    const imported: QueryItem[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (const char of lines[i]) {
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim());
+
+      if (values.length >= 4) {
+        const textIndex = headers.indexOf('text');
+        const tagsIndex = headers.indexOf('tags');
+        const categoryIdIndex = headers.indexOf('categoryId');
+        const sourceIndex = headers.indexOf('source');
+        const statusIndex = headers.indexOf('status');
+
+        const text = textIndex >= 0 ? values[textIndex]?.replace(/""/g, '"') : values[2]?.replace(/""/g, '"');
+        const tagsRaw = tagsIndex >= 0 ? values[tagsIndex] : values[3];
+        const categoryId = categoryIdIndex >= 0 ? values[categoryIdIndex] : values[1];
+
+        if (text && categoryId) {
+          imported.push({
+            id: crypto.randomUUID(),
+            categoryId,
+            text,
+            tags: tagsRaw ? tagsRaw.split(';').filter(Boolean) : [],
+            source: (sourceIndex >= 0 ? values[sourceIndex] : 'manual') as 'generated' | 'manual',
+            status: (statusIndex >= 0 ? values[statusIndex] : 'active') as 'active' | 'archived',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    setQueries(prev => [...prev, ...imported]);
+    return imported;
   }, []);
 
   return {
@@ -121,6 +171,6 @@ export function useQueryStore() {
     deleteQuery,
     getQueriesByCategory,
     exportQueries,
-    importQueries,
+    importQueriesFromCSV,
   };
 }
