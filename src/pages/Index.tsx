@@ -25,6 +25,7 @@ const Index = () => {
     deleteQuery,
     getQueriesByCategory,
     exportQueries,
+    importQueriesFromCSV,
   } = useQueryStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,6 +144,10 @@ const Index = () => {
               setQueryModalOpen(true);
             }}
             onExport={handleExport}
+            onImportCSV={(content) => {
+              const imported = importQueriesFromCSV(content);
+              toast.success(`${imported.length}개의 질의어를 가져왔습니다.`);
+            }}
             isGenerating={isGenerating}
           />
 

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Search, Sparkles, Plus, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ interface MainToolbarProps {
   onAutoGenerate: () => void;
   onAddQuery: () => void;
   onExport: (format: 'json' | 'csv') => void;
+  onImportCSV: (content: string) => void;
   isGenerating?: boolean;
 }
 
@@ -21,8 +23,23 @@ export function MainToolbar({
   onAutoGenerate, 
   onAddQuery,
   onExport,
+  onImportCSV,
   isGenerating 
 }: MainToolbarProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        onImportCSV(content);
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    }
+  };
   return (
     <div className="border-b border-border bg-card px-6 py-4">
       <div className="flex items-center justify-between gap-4">
@@ -78,6 +95,18 @@ export function MainToolbar({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="gap-2">
+            <Upload className="h-4 w-4" />
+            불러오기
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleFileChange}
+            className="hidden"
+          />
         </div>
       </div>
     </div>
