@@ -1,0 +1,85 @@
+import { Search, Sparkles, Plus, Download, Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Category } from '@/lib/types';
+
+interface MainToolbarProps {
+  category: Category | undefined;
+  searchQuery: string;
+  onSearchChange: (value: string) => void;
+  onAutoGenerate: () => void;
+  onAddQuery: () => void;
+  onExport: (format: 'json' | 'csv') => void;
+  isGenerating?: boolean;
+}
+
+export function MainToolbar({ 
+  category, 
+  searchQuery, 
+  onSearchChange, 
+  onAutoGenerate, 
+  onAddQuery,
+  onExport,
+  isGenerating 
+}: MainToolbarProps) {
+  return (
+    <div className="border-b border-border bg-card px-6 py-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-semibold text-foreground">
+            {category?.name || '카테고리 선택'}
+          </h1>
+          {category && (
+            <span className="text-sm text-muted-foreground">
+              {category.description}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="질의어 검색..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <Button 
+            onClick={onAutoGenerate} 
+            disabled={isGenerating}
+            className="gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            {isGenerating ? '생성 중...' : '자동 생성'}
+          </Button>
+
+          <Button variant="outline" onClick={onAddQuery} className="gap-2">
+            <Plus className="h-4 w-4" />
+            추가
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Download className="h-4 w-4" />
+                내보내기
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onExport('json')}>
+                JSON 형식
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('csv')}>
+                CSV 형식
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
+  );
+}
