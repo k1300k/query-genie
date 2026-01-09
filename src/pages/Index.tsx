@@ -16,6 +16,8 @@ import { FileText } from 'lucide-react';
 const DEFAULT_AI_SETTINGS: AISettings = {
   provider: 'gemini',
   generateCount: 5,
+  useCustomKey: false,
+  openaiApiKey: '',
 };
 
 const Index = () => {
@@ -69,13 +71,17 @@ const Index = () => {
     
     setIsGenerating(true);
     try {
+      const useCustomOpenAI = aiSettings.provider === 'chatgpt' && aiSettings.useCustomKey && aiSettings.openaiApiKey;
       const model = aiSettings.provider === 'gemini' ? 'google/gemini-2.5-flash' : 'openai/gpt-5-mini';
+      
       const { data, error } = await supabase.functions.invoke('generate-queries', {
         body: {
           categoryId: selectedCategoryId,
           categoryName: selectedCategory.name,
           count: aiSettings.generateCount,
           model,
+          useCustomOpenAI: !!useCustomOpenAI,
+          openaiApiKey: useCustomOpenAI ? aiSettings.openaiApiKey : undefined,
         },
       });
 
