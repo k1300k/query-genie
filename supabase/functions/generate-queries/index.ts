@@ -22,13 +22,15 @@ serve(async (req) => {
   }
 
   try {
-    const { categoryId, categoryName, count = 5, model = "google/gemini-2.5-flash" } = await req.json();
+    const { 
+      categoryId, 
+      categoryName, 
+      count = 5, 
+      model = "google/gemini-2.5-flash",
+      useCustomOpenAI = false,
+      openaiApiKey 
+    } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
     const categoryContext = CATEGORY_PROMPTS[categoryId] || categoryName;
     
     const systemPrompt = `당신은 AI Agent 서비스의 질의어 테스트케이스를 생성하는 전문가입니다.
@@ -49,22 +51,51 @@ JSON 배열 형식으로만 응답하세요:
   ...
 ]`;
 
-    console.log(`Generating ${count} queries for category ${categoryId} using model: ${model}`);
+    let response;
+    
+    if (useCustomOpenAI && openaiApiKey) {
+      // Use direct OpenAI API with user's API key
+      console.log(`Generating ${count} queries using custom OpenAI API key`);
+      
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${openaiApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          max_tokens: 2000,
+        }),
+      });
+    } else {
+      // Use Lovable AI Gateway
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY is not configured");
+      }
+      
+      console.log(`Generating ${count} queries for category ${categoryId} using Lovable AI model: ${model}`);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        }),
+      });
+    }
 
     if (!response.ok) {
       if (response.status === 429) {
