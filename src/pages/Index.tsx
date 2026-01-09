@@ -115,9 +115,9 @@ const Index = () => {
     toast.success('질의어가 삭제되었습니다');
   };
 
-  const handleExport = (format: 'json' | 'csv') => {
-    exportQueries(selectedCategoryId, format);
-    toast.success(`${format.toUpperCase()} 파일로 내보내기 완료`);
+  const handleExport = (format: 'json' | 'csv', all?: boolean) => {
+    exportQueries(all ? undefined : selectedCategoryId, format);
+    toast.success(`${all ? '전체 카테고리' : '현재 카테고리'} ${format.toUpperCase()} 파일로 내보내기 완료`);
   };
 
   return (

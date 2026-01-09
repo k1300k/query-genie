@@ -11,7 +11,7 @@ interface MainToolbarProps {
   onSearchChange: (value: string) => void;
   onAutoGenerate: () => void;
   onAddQuery: () => void;
-  onExport: (format: 'json' | 'csv') => void;
+  onExport: (format: 'json' | 'csv', all?: boolean) => void;
   onImportCSV: (content: string) => void;
   isGenerating?: boolean;
 }
@@ -88,10 +88,16 @@ export function MainToolbar({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onExport('json')}>
-                JSON 형식
+                현재 카테고리 (JSON)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onExport('csv')}>
-                CSV 형식
+                현재 카테고리 (CSV)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('json', true)}>
+                전체 카테고리 (JSON)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('csv', true)}>
+                전체 카테고리 (CSV)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
