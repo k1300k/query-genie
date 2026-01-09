@@ -5,12 +5,18 @@ import { MainToolbar } from '@/components/query/MainToolbar';
 import { QueryCard } from '@/components/query/QueryCard';
 import { QueryEditorModal } from '@/components/query/QueryEditorModal';
 import { CategoryModal } from '@/components/query/CategoryModal';
+import { AISettingsModal, AISettings, AIProvider } from '@/components/query/AISettingsModal';
 import { useQueryStore } from '@/hooks/useQueryStore';
 import { QueryItem } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { FileText } from 'lucide-react';
+
+const DEFAULT_AI_SETTINGS: AISettings = {
+  provider: 'gemini',
+  generateCount: 5,
+};
 
 const Index = () => {
   const {
@@ -31,8 +37,10 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [queryModalOpen, setQueryModalOpen] = useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [aiSettingsModalOpen, setAiSettingsModalOpen] = useState(false);
   const [editingQuery, setEditingQuery] = useState<QueryItem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
 
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
 
@@ -61,11 +69,13 @@ const Index = () => {
     
     setIsGenerating(true);
     try {
+      const model = aiSettings.provider === 'gemini' ? 'google/gemini-2.5-flash' : 'openai/gpt-5-mini';
       const { data, error } = await supabase.functions.invoke('generate-queries', {
         body: {
           categoryId: selectedCategoryId,
           categoryName: selectedCategory.name,
-          count: 5,
+          count: aiSettings.generateCount,
+          model,
         },
       });
 
@@ -148,6 +158,8 @@ const Index = () => {
               const imported = importQueriesFromCSV(content);
               toast.success(`${imported.length}개의 질의어를 가져왔습니다.`);
             }}
+            onOpenAISettings={() => setAiSettingsModalOpen(true)}
+            aiProvider={aiSettings.provider}
             isGenerating={isGenerating}
           />
 
@@ -195,6 +207,16 @@ const Index = () => {
         onSave={(cat) => {
           addCategory(cat);
           toast.success('카테고리가 추가되었습니다');
+        }}
+      />
+
+      <AISettingsModal
+        open={aiSettingsModalOpen}
+        onOpenChange={setAiSettingsModalOpen}
+        settings={aiSettings}
+        onSave={(settings) => {
+          setAiSettings(settings);
+          toast.success('AI 설정이 저장되었습니다');
         }}
       />
     </div>

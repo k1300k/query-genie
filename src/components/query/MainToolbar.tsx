@@ -1,9 +1,10 @@
 import { useRef } from 'react';
-import { Search, Sparkles, Plus, Download, Upload } from 'lucide-react';
+import { Search, Sparkles, Plus, Download, Upload, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Category } from '@/lib/types';
+import { AIProvider } from './AISettingsModal';
 
 interface MainToolbarProps {
   category: Category | undefined;
@@ -13,6 +14,8 @@ interface MainToolbarProps {
   onAddQuery: () => void;
   onExport: (format: 'json' | 'csv', all?: boolean) => void;
   onImportCSV: (content: string) => void;
+  onOpenAISettings: () => void;
+  aiProvider: AIProvider;
   isGenerating?: boolean;
 }
 
@@ -24,6 +27,8 @@ export function MainToolbar({
   onAddQuery,
   onExport,
   onImportCSV,
+  onOpenAISettings,
+  aiProvider,
   isGenerating 
 }: MainToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,13 +70,17 @@ export function MainToolbar({
             />
           </div>
 
+          <Button variant="ghost" size="icon" onClick={onOpenAISettings} title="AI 설정">
+            <Settings className="h-4 w-4" />
+          </Button>
+
           <Button 
             onClick={onAutoGenerate} 
             disabled={isGenerating}
             className="gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            {isGenerating ? '생성 중...' : '자동 생성'}
+            {isGenerating ? '생성 중...' : `자동 생성 (${aiProvider === 'gemini' ? 'Gemini' : 'ChatGPT'})`}
           </Button>
 
           <Button variant="outline" onClick={onAddQuery} className="gap-2">

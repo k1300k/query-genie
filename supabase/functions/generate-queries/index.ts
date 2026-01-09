@@ -22,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { categoryId, categoryName, count = 5 } = await req.json();
+    const { categoryId, categoryName, count = 5, model = "google/gemini-2.5-flash" } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -49,6 +49,8 @@ JSON 배열 형식으로만 응답하세요:
   ...
 ]`;
 
+    console.log(`Generating ${count} queries for category ${categoryId} using model: ${model}`);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -56,7 +58,7 @@ JSON 배열 형식으로만 응답하세요:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
