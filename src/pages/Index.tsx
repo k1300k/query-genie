@@ -209,6 +209,7 @@ const Index = () => {
                       onEdit={handleEditQuery}
                       onDelete={handleDeleteQuery}
                       onGenerateAnswer={handleGenerateAnswer}
+                      onUpdateAnswer={(id, answer) => updateQuery(id, { answer })}
                     />
                   ))}
                 </div>
