@@ -1,8 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+// Get allowed origins from environment or use defaults
+const getAllowedOrigins = (): string[] => {
+  const envOrigin = Deno.env.get("ALLOWED_ORIGIN");
+  const origins = [
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "https://supfkjngdwqltvgcaapz.lovableproject.com"
+  ];
+  if (envOrigin) origins.push(envOrigin);
+  return origins;
+};
+
+const getCorsHeaders = (origin: string | null): Record<string, string> => {
+  const allowedOrigins = getAllowedOrigins();
+  const allowedOrigin = origin && allowedOrigins.includes(origin) 
+    ? origin 
+    : allowedOrigins[0];
+  
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
 };
 
 const CATEGORY_CONTEXT: Record<string, string> = {
@@ -16,22 +36,74 @@ const CATEGORY_CONTEXT: Record<string, string> = {
   complex: "복합 데이터 API (여러 API를 조합하여 ETA 변화 분석, 경로 추천 이유 등)",
 };
 
+// Allowed models for validation
+const ALLOWED_MODELS = [
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-pro",
+  "openai/gpt-5-mini",
+  "openai/gpt-5",
+];
+
 serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Only allow POST requests
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "Method not allowed" }),
+      { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
+    const body = await req.json();
+    
+    // Input validation
     const { 
       query, 
       categoryId, 
       categoryName,
-      model = "google/gemini-2.5-flash",
-      useCustomOpenAI = false,
-      openaiApiKey 
-    } = await req.json();
+      model = "google/gemini-2.5-flash"
+    } = body;
+
+    // Validate query
+    if (!query || typeof query !== "string" || query.length === 0 || query.length > 1000) {
+      return new Response(
+        JSON.stringify({ error: "유효하지 않은 질의어입니다" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate categoryId
+    if (!categoryId || typeof categoryId !== "string" || categoryId.length > 100) {
+      return new Response(
+        JSON.stringify({ error: "유효하지 않은 카테고리 ID입니다" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate categoryName if provided
+    if (categoryName && (typeof categoryName !== "string" || categoryName.length > 200)) {
+      return new Response(
+        JSON.stringify({ error: "유효하지 않은 카테고리 이름입니다" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate model
+    if (!ALLOWED_MODELS.includes(model)) {
+      return new Response(
+        JSON.stringify({ error: "유효하지 않은 AI 모델입니다" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     
-    const mcpContext = CATEGORY_CONTEXT[categoryId] || categoryName;
+    const mcpContext = CATEGORY_CONTEXT[categoryId] || categoryName || categoryId;
     
     const systemPrompt = `당신은 차량 내 AI 비서입니다. 운전자의 질문에 대해 ${mcpContext}를 활용하여 답변합니다.
 
@@ -46,49 +118,29 @@ serve(async (req) => {
 
 위 질문에 대해 ${mcpContext}를 조회한 결과를 바탕으로 답변해주세요.`;
 
-    let response;
-    
-    if (useCustomOpenAI && openaiApiKey) {
-      console.log("Generating answer using custom OpenAI API key");
-      
-      response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${openaiApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: 1000,
-        }),
-      });
-    } else {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        throw new Error("LOVABLE_API_KEY is not configured");
-      }
-      
-      console.log(`Generating answer for query in category ${categoryId} using model: ${model}`);
-
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-        }),
-      });
+    // Use Lovable AI Gateway only - no custom API keys allowed
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY is not configured");
+      throw new Error("AI 서비스 설정 오류가 발생했습니다");
     }
+    
+    console.log(`Generating answer for query in category ${categoryId} using model: ${model}`);
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -103,8 +155,7 @@ serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      console.error("AI Gateway error:", response.status);
       throw new Error("AI 서비스 오류가 발생했습니다");
     }
 
@@ -120,7 +171,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("generate-answer error:", error);
+    console.error("generate-answer error:", error instanceof Error ? error.message : "Unknown error");
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다" 

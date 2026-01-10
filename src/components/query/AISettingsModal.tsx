@@ -4,17 +4,13 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Input } from '@/components/ui/input';
-import { Bot, Sparkles, Key, Eye, EyeOff } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { Bot, Sparkles } from 'lucide-react';
 
 export type AIProvider = 'gemini' | 'chatgpt';
 
 export interface AISettings {
   provider: AIProvider;
   generateCount: number;
-  useCustomKey: boolean;
-  openaiApiKey: string;
 }
 
 interface AISettingsModalProps {
@@ -30,20 +26,17 @@ const AI_PROVIDERS = [
     name: 'Google Gemini',
     description: 'google/gemini-2.5-flash - 빠르고 효율적인 응답',
     icon: Sparkles,
-    requiresKey: false,
   },
   {
     id: 'chatgpt' as AIProvider,
     name: 'ChatGPT',
-    description: 'gpt-4o-mini - OpenAI의 강력한 모델',
+    description: 'openai/gpt-5-mini - OpenAI의 강력한 모델',
     icon: Bot,
-    requiresKey: true,
   },
 ];
 
 export function AISettingsModal({ open, onOpenChange, settings, onSave }: AISettingsModalProps) {
   const [localSettings, setLocalSettings] = useState<AISettings>(settings);
-  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -53,9 +46,6 @@ export function AISettingsModal({ open, onOpenChange, settings, onSave }: AISett
     onSave(localSettings);
     onOpenChange(false);
   };
-
-  const selectedProvider = AI_PROVIDERS.find(p => p.id === localSettings.provider);
-  const needsApiKey = localSettings.provider === 'chatgpt' && localSettings.useCustomKey;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -92,9 +82,6 @@ export function AISettingsModal({ open, onOpenChange, settings, onSave }: AISett
                       <Label htmlFor={provider.id} className="font-medium cursor-pointer">
                         {provider.name}
                       </Label>
-                      {provider.requiresKey && (
-                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded">API 키 필요</span>
-                      )}
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
                       {provider.description}
@@ -104,54 +91,6 @@ export function AISettingsModal({ open, onOpenChange, settings, onSave }: AISett
               ))}
             </RadioGroup>
           </div>
-
-          {localSettings.provider === 'chatgpt' && (
-            <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Key className="h-4 w-4 text-muted-foreground" />
-                  <Label className="text-sm font-medium">직접 API 키 사용</Label>
-                </div>
-                <Switch
-                  checked={localSettings.useCustomKey}
-                  onCheckedChange={(checked) => setLocalSettings(prev => ({ ...prev, useCustomKey: checked }))}
-                />
-              </div>
-              
-              {localSettings.useCustomKey && (
-                <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">OpenAI API 키</Label>
-                  <div className="relative">
-                    <Input
-                      type={showApiKey ? 'text' : 'password'}
-                      placeholder="sk-..."
-                      value={localSettings.openaiApiKey}
-                      onChange={(e) => setLocalSettings(prev => ({ ...prev, openaiApiKey: e.target.value }))}
-                      className="pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                    >
-                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    API 키는 브라우저에 로컬 저장됩니다.
-                  </p>
-                </div>
-              )}
-              
-              {!localSettings.useCustomKey && (
-                <p className="text-xs text-muted-foreground">
-                  기본 Lovable AI 게이트웨이를 통해 ChatGPT를 사용합니다.
-                </p>
-              )}
-            </div>
-          )}
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -177,10 +116,7 @@ export function AISettingsModal({ open, onOpenChange, settings, onSave }: AISett
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             취소
           </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={needsApiKey && !localSettings.openaiApiKey}
-          >
+          <Button onClick={handleSave}>
             저장
           </Button>
         </div>
