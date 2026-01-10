@@ -6,7 +6,9 @@ const getAllowedOrigins = (): string[] => {
   const origins = [
     "http://localhost:5173",
     "http://localhost:8080",
-    "https://supfkjngdwqltvgcaapz.lovableproject.com"
+    "https://supfkjngdwqltvgcaapz.lovableproject.com",
+    "https://lovable.dev",
+    "https://preview--supfkjngdwqltvgcaapz.lovable.app"
   ];
   if (envOrigin) origins.push(envOrigin);
   return origins;
