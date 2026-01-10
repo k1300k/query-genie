@@ -16,6 +16,7 @@ export interface QueryItem {
   tags: string[];
   source: 'generated' | 'manual';
   status: 'active' | 'archived';
+  answer?: string;
   createdAt: string;
   updatedAt: string;
 }

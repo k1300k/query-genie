@@ -79,7 +79,7 @@ export function useQueryStore() {
       a.click();
       URL.revokeObjectURL(url);
     } else {
-      const headers = ['id', 'categoryId', 'text', 'tags', 'source', 'status', 'createdAt', 'updatedAt'];
+      const headers = ['id', 'categoryId', 'text', 'tags', 'source', 'status', 'answer', 'createdAt', 'updatedAt'];
       const csvContent = [
         headers.join(','),
         ...dataToExport.map(q => [
@@ -89,6 +89,7 @@ export function useQueryStore() {
           `"${q.tags.join(';')}"`,
           q.source,
           q.status,
+          `"${(q.answer || '').replace(/"/g, '""').replace(/\n/g, '\\n')}"`,
           q.createdAt,
           q.updatedAt
         ].join(','))
@@ -133,10 +134,12 @@ export function useQueryStore() {
         const categoryIdIndex = headers.indexOf('categoryId');
         const sourceIndex = headers.indexOf('source');
         const statusIndex = headers.indexOf('status');
+        const answerIndex = headers.indexOf('answer');
 
         const text = textIndex >= 0 ? values[textIndex]?.replace(/""/g, '"') : values[2]?.replace(/""/g, '"');
         const tagsRaw = tagsIndex >= 0 ? values[tagsIndex] : values[3];
         const categoryId = categoryIdIndex >= 0 ? values[categoryIdIndex] : values[1];
+        const answerRaw = answerIndex >= 0 ? values[answerIndex]?.replace(/""/g, '"').replace(/\\n/g, '\n') : undefined;
 
         if (text && categoryId) {
           imported.push({
@@ -146,6 +149,7 @@ export function useQueryStore() {
             tags: tagsRaw ? tagsRaw.split(';').filter(Boolean) : [],
             source: (sourceIndex >= 0 ? values[sourceIndex] : 'manual') as 'generated' | 'manual',
             status: (statusIndex >= 0 ? values[statusIndex] : 'active') as 'active' | 'archived',
+            answer: answerRaw || undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           });

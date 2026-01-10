@@ -10,10 +10,11 @@ interface QueryCardProps {
   onEdit: (query: QueryItem) => void;
   onDelete: (id: string) => void;
   onGenerateAnswer?: (query: QueryItem) => Promise<string>;
+  onUpdateAnswer?: (id: string, answer: string) => void;
 }
 
-export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer }: QueryCardProps) {
-  const [answer, setAnswer] = useState<string | null>(null);
+export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateAnswer }: QueryCardProps) {
+  const [answer, setAnswer] = useState<string | null>(query.answer || null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerateAnswer = async () => {
@@ -23,6 +24,7 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer }: QueryCa
     try {
       const generatedAnswer = await onGenerateAnswer(query);
       setAnswer(generatedAnswer);
+      onUpdateAnswer?.(query.id, generatedAnswer);
     } catch (error) {
       console.error('Failed to generate answer:', error);
     } finally {
