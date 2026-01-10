@@ -1,8 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+// Get allowed origins from environment or use defaults
+const getAllowedOrigins = (): string[] => {
+  const envOrigin = Deno.env.get("ALLOWED_ORIGIN");
+  const origins = [
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "https://supfkjngdwqltvgcaapz.lovableproject.com"
+  ];
+  if (envOrigin) origins.push(envOrigin);
+  return origins;
+};
+
+const getCorsHeaders = (origin: string | null): Record<string, string> => {
+  const allowedOrigins = getAllowedOrigins();
+  const allowedOrigin = origin && allowedOrigins.includes(origin) 
+    ? origin 
+    : allowedOrigins[0];
+  
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
 };
 
 const CATEGORY_PROMPTS: Record<string, string> = {
@@ -16,22 +36,69 @@ const CATEGORY_PROMPTS: Record<string, string> = {
   complex: "여러 데이터를 복합적으로 활용하는 질의어 (ETA 변화 이유, 경로 추천 이유 등)",
 };
 
+// Allowed models for validation
+const ALLOWED_MODELS = [
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-pro",
+  "openai/gpt-5-mini",
+  "openai/gpt-5",
+];
+
 serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Only allow POST requests
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "Method not allowed" }),
+      { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
+    const body = await req.json();
+    
+    // Input validation
     const { 
       categoryId, 
       categoryName, 
       count = 5, 
-      model = "google/gemini-2.5-flash",
-      useCustomOpenAI = false,
-      openaiApiKey 
-    } = await req.json();
+      model = "google/gemini-2.5-flash"
+    } = body;
+
+    // Validate categoryId
+    if (!categoryId || typeof categoryId !== "string" || categoryId.length > 100) {
+      return new Response(
+        JSON.stringify({ error: "유효하지 않은 카테고리 ID입니다" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate categoryName if provided
+    if (categoryName && (typeof categoryName !== "string" || categoryName.length > 200)) {
+      return new Response(
+        JSON.stringify({ error: "유효하지 않은 카테고리 이름입니다" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate count
+    const validatedCount = Math.min(Math.max(parseInt(String(count)) || 5, 1), 20);
+
+    // Validate model
+    if (!ALLOWED_MODELS.includes(model)) {
+      return new Response(
+        JSON.stringify({ error: "유효하지 않은 AI 모델입니다" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     
-    const categoryContext = CATEGORY_PROMPTS[categoryId] || categoryName;
+    const categoryContext = CATEGORY_PROMPTS[categoryId] || categoryName || categoryId;
     
     const systemPrompt = `당신은 AI Agent 서비스의 질의어 테스트케이스를 생성하는 전문가입니다.
 사용자가 AI Agent에게 물어볼 수 있는 자연스러운 한국어 질의어를 생성합니다.
@@ -43,7 +110,7 @@ serve(async (req) => {
 4. 각 질의어에 적절한 태그 2-3개를 추가하세요
 5. 중복되지 않는 다양한 질의어를 생성하세요`;
 
-    const userPrompt = `"${categoryContext}" 카테고리에 대한 질의어 ${count}개를 생성해주세요.
+    const userPrompt = `"${categoryContext}" 카테고리에 대한 질의어 ${validatedCount}개를 생성해주세요.
 
 JSON 배열 형식으로만 응답하세요:
 [
@@ -51,51 +118,29 @@ JSON 배열 형식으로만 응답하세요:
   ...
 ]`;
 
-    let response;
-    
-    if (useCustomOpenAI && openaiApiKey) {
-      // Use direct OpenAI API with user's API key
-      console.log(`Generating ${count} queries using custom OpenAI API key`);
-      
-      response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${openaiApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          max_tokens: 2000,
-        }),
-      });
-    } else {
-      // Use Lovable AI Gateway
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        throw new Error("LOVABLE_API_KEY is not configured");
-      }
-      
-      console.log(`Generating ${count} queries for category ${categoryId} using Lovable AI model: ${model}`);
-
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-        }),
-      });
+    // Use Lovable AI Gateway only - no custom API keys allowed
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY is not configured");
+      throw new Error("AI 서비스 설정 오류가 발생했습니다");
     }
+    
+    console.log(`Generating ${validatedCount} queries for category ${categoryId} using model: ${model}`);
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -110,8 +155,7 @@ JSON 배열 형식으로만 응답하세요:
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
+      console.error("AI Gateway error:", response.status);
       throw new Error("AI 서비스 오류가 발생했습니다");
     }
 
@@ -135,7 +179,7 @@ JSON 배열 형식으로만 응답하세요:
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("generate-queries error:", error);
+    console.error("generate-queries error:", error instanceof Error ? error.message : "Unknown error");
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다" 
