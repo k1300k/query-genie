@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { AppHeader } from '@/components/query/AppHeader';
 import { CategorySidebar } from '@/components/query/CategorySidebar';
 import { MainToolbar } from '@/components/query/MainToolbar';
@@ -7,7 +7,7 @@ import { QueryEditorModal } from '@/components/query/QueryEditorModal';
 import { CategoryModal } from '@/components/query/CategoryModal';
 import { AISettingsModal, AISettings, AIProvider } from '@/components/query/AISettingsModal';
 import { useQueryStore } from '@/hooks/useQueryStore';
-import { QueryItem } from '@/lib/types';
+import { QueryItem, Category } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
@@ -110,6 +110,35 @@ const Index = () => {
     }
   };
 
+  const handleGenerateAnswer = useCallback(async (query: QueryItem): Promise<string> => {
+    const category = categories.find(c => c.id === query.categoryId);
+    const useCustomOpenAI = aiSettings.provider === 'chatgpt' && aiSettings.useCustomKey && aiSettings.openaiApiKey;
+    const model = aiSettings.provider === 'gemini' ? 'google/gemini-2.5-flash' : 'openai/gpt-5-mini';
+
+    const { data, error } = await supabase.functions.invoke('generate-answer', {
+      body: {
+        query: query.text,
+        categoryId: query.categoryId,
+        categoryName: category?.name || '',
+        model,
+        useCustomOpenAI: !!useCustomOpenAI,
+        openaiApiKey: useCustomOpenAI ? aiSettings.openaiApiKey : undefined,
+      },
+    });
+
+    if (error) {
+      toast.error('답변 생성 중 오류가 발생했습니다');
+      throw error;
+    }
+
+    if (data?.error) {
+      toast.error(data.error);
+      throw new Error(data.error);
+    }
+
+    return data.answer;
+  }, [categories, aiSettings]);
+
   const handleEditQuery = (query: QueryItem) => {
     setEditingQuery(query);
     setQueryModalOpen(true);
@@ -179,6 +208,7 @@ const Index = () => {
                       query={query}
                       onEdit={handleEditQuery}
                       onDelete={handleDeleteQuery}
+                      onGenerateAnswer={handleGenerateAnswer}
                     />
                   ))}
                 </div>

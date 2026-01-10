@@ -1,4 +1,5 @@
-import { Edit2, Trash2, Sparkles, User } from 'lucide-react';
+import { useState } from 'react';
+import { Edit2, Trash2, Sparkles, User, MessageCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,9 +9,27 @@ interface QueryCardProps {
   query: QueryItem;
   onEdit: (query: QueryItem) => void;
   onDelete: (id: string) => void;
+  onGenerateAnswer?: (query: QueryItem) => Promise<string>;
 }
 
-export function QueryCard({ query, onEdit, onDelete }: QueryCardProps) {
+export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer }: QueryCardProps) {
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerateAnswer = async () => {
+    if (!onGenerateAnswer) return;
+    
+    setIsGenerating(true);
+    try {
+      const generatedAnswer = await onGenerateAnswer(query);
+      setAnswer(generatedAnswer);
+    } catch (error) {
+      console.error('Failed to generate answer:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <Card className="group hover:shadow-md transition-shadow">
       <CardContent className="p-4">
@@ -43,6 +62,26 @@ export function QueryCard({ query, onEdit, onDelete }: QueryCardProps) {
                   </>
                 )}
               </Badge>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs gap-1"
+                onClick={handleGenerateAnswer}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    생성 중...
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle className="h-3 w-3" />
+                    답변
+                  </>
+                )}
+              </Button>
             </div>
           </div>
           
@@ -65,6 +104,19 @@ export function QueryCard({ query, onEdit, onDelete }: QueryCardProps) {
             </Button>
           </div>
         </div>
+
+        {/* Answer Section */}
+        {answer && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-xs font-medium text-muted-foreground">AI 답변</span>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+              {answer}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
