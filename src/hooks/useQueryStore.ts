@@ -104,12 +104,57 @@ export function useQueryStore() {
     }
   }, [queries]);
 
-  const importQueriesFromCSV = useCallback((csvContent: string) => {
+  // Security: Maximum limits for CSV import
+  const MAX_CSV_SIZE = 1024 * 1024; // 1MB
+  const MAX_ROWS = 1000;
+  const MAX_TEXT_LENGTH = 5000;
+  const MAX_TAG_LENGTH = 100;
+  const MAX_TAGS_COUNT = 20;
+
+  // Security: Sanitize text to prevent CSV injection
+  const sanitizeForCSV = (value: string): string => {
+    if (!value) return '';
+    const trimmed = value.trim();
+    // Remove dangerous characters that could trigger formula execution in spreadsheets
+    if (/^[=+\-@\t\r]/.test(trimmed)) {
+      return "'" + trimmed; // Prefix with single quote to neutralize
+    }
+    return trimmed;
+  };
+
+  // Security: Validate enum values
+  const isValidSource = (value: string): value is 'generated' | 'manual' => {
+    return value === 'generated' || value === 'manual';
+  };
+
+  const isValidStatus = (value: string): value is 'active' | 'archived' => {
+    return value === 'active' || value === 'archived';
+  };
+
+  const importQueriesFromCSV = useCallback((csvContent: string): { imported: QueryItem[]; errors: string[] } => {
+    const errors: string[] = [];
+
+    // Security: Check file size
+    if (csvContent.length > MAX_CSV_SIZE) {
+      errors.push(`파일 크기가 너무 큽니다. 최대 ${MAX_CSV_SIZE / 1024}KB까지 허용됩니다.`);
+      return { imported: [], errors };
+    }
+
     const lines = csvContent.trim().split('\n');
-    if (lines.length < 2) return [];
+    if (lines.length < 2) {
+      errors.push('CSV 파일에 데이터가 없습니다.');
+      return { imported: [], errors };
+    }
+
+    // Security: Check row count
+    if (lines.length - 1 > MAX_ROWS) {
+      errors.push(`행 수가 너무 많습니다. 최대 ${MAX_ROWS}개까지 허용됩니다.`);
+      return { imported: [], errors };
+    }
 
     const headers = lines[0].split(',');
     const imported: QueryItem[] = [];
+    const categoryIds = new Set(categories.map(c => c.id));
 
     for (let i = 1; i < lines.length; i++) {
       const values: string[] = [];
@@ -136,19 +181,49 @@ export function useQueryStore() {
         const statusIndex = headers.indexOf('status');
         const answerIndex = headers.indexOf('answer');
 
-        const text = textIndex >= 0 ? values[textIndex]?.replace(/""/g, '"') : values[2]?.replace(/""/g, '"');
+        let text = textIndex >= 0 ? values[textIndex]?.replace(/""/g, '"') : values[2]?.replace(/""/g, '"');
         const tagsRaw = tagsIndex >= 0 ? values[tagsIndex] : values[3];
         const categoryId = categoryIdIndex >= 0 ? values[categoryIdIndex] : values[1];
-        const answerRaw = answerIndex >= 0 ? values[answerIndex]?.replace(/""/g, '"').replace(/\\n/g, '\n') : undefined;
+        let answerRaw = answerIndex >= 0 ? values[answerIndex]?.replace(/""/g, '"').replace(/\\n/g, '\n') : undefined;
+        const sourceRaw = sourceIndex >= 0 ? values[sourceIndex] : 'manual';
+        const statusRaw = statusIndex >= 0 ? values[statusIndex] : 'active';
+
+        // Security: Sanitize text fields
+        text = sanitizeForCSV(text || '');
+        answerRaw = answerRaw ? sanitizeForCSV(answerRaw) : undefined;
+
+        // Security: Validate text length
+        if (text.length > MAX_TEXT_LENGTH) {
+          errors.push(`행 ${i + 1}: 텍스트가 너무 깁니다.`);
+          continue;
+        }
+
+        // Security: Validate categoryId exists
+        if (!categoryId || !categoryIds.has(categoryId)) {
+          errors.push(`행 ${i + 1}: 유효하지 않은 카테고리 ID입니다.`);
+          continue;
+        }
+
+        // Security: Validate source and status enum values
+        const source = isValidSource(sourceRaw) ? sourceRaw : 'manual';
+        const status = isValidStatus(statusRaw) ? statusRaw : 'active';
+
+        // Security: Validate and sanitize tags
+        const tags = tagsRaw 
+          ? tagsRaw.split(';')
+              .filter(Boolean)
+              .slice(0, MAX_TAGS_COUNT)
+              .map(tag => sanitizeForCSV(tag).slice(0, MAX_TAG_LENGTH))
+          : [];
 
         if (text && categoryId) {
           imported.push({
             id: crypto.randomUUID(),
             categoryId,
             text,
-            tags: tagsRaw ? tagsRaw.split(';').filter(Boolean) : [],
-            source: (sourceIndex >= 0 ? values[sourceIndex] : 'manual') as 'generated' | 'manual',
-            status: (statusIndex >= 0 ? values[statusIndex] : 'active') as 'active' | 'archived',
+            tags,
+            source,
+            status,
             answer: answerRaw || undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -158,8 +233,8 @@ export function useQueryStore() {
     }
 
     setQueries(prev => [...prev, ...imported]);
-    return imported;
-  }, []);
+    return { imported, errors };
+  }, [categories]);
 
   return {
     categories,
