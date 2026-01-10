@@ -182,8 +182,12 @@ const Index = () => {
             }}
             onExport={handleExport}
             onImportCSV={(content) => {
-              const imported = importQueriesFromCSV(content);
-              toast.success(`${imported.length}개의 질의어를 가져왔습니다.`);
+              const result = importQueriesFromCSV(content);
+              if (result.errors.length > 0) {
+                toast.warning(`${result.imported.length}개 가져옴, ${result.errors.length}개 오류`);
+              } else {
+                toast.success(`${result.imported.length}개의 질의어를 가져왔습니다.`);
+              }
             }}
             onOpenAISettings={() => setAiSettingsModalOpen(true)}
             aiProvider={aiSettings.provider}

@@ -121,11 +121,8 @@ JSON 배열 형식으로만 응답하세요:
     // Use Lovable AI Gateway only - no custom API keys allowed
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
       throw new Error("AI 서비스 설정 오류가 발생했습니다");
     }
-    
-    console.log(`Generating ${validatedCount} queries for category ${categoryId} using model: ${model}`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -155,7 +152,6 @@ JSON 배열 형식으로만 응답하세요:
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      console.error("AI Gateway error:", response.status);
       throw new Error("AI 서비스 오류가 발생했습니다");
     }
 
@@ -179,7 +175,8 @@ JSON 배열 형식으로만 응답하세요:
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("generate-queries error:", error instanceof Error ? error.message : "Unknown error");
+    // Log only error type, not full message or stack trace
+    console.error("generate-queries: request failed");
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다" 
