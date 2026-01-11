@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Get allowed origins from environment or use defaults
@@ -55,6 +56,24 @@ const ALLOWED_GEMINI_MODELS = [
   "gemini-1.5-flash",
 ];
 
+// Allowed OpenAI models for direct API
+const ALLOWED_OPENAI_MODELS = [
+  "gpt-4o-mini",
+  "gpt-4o",
+  "gpt-4.1-2025-04-14",
+  "gpt-4.1-mini-2025-04-14",
+  "gpt-5-2025-08-07",
+  "gpt-5-mini-2025-08-07",
+];
+
+// Models that require max_completion_tokens instead of max_tokens and don't support temperature
+const NEWER_OPENAI_MODELS = [
+  "gpt-5-2025-08-07",
+  "gpt-5-mini-2025-08-07",
+  "gpt-4.1-2025-04-14",
+  "gpt-4.1-mini-2025-04-14",
+];
+
 serve(async (req) => {
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
@@ -82,7 +101,9 @@ serve(async (req) => {
       model = "google/gemini-2.5-flash",
       provider = "lovable",
       geminiApiKey,
-      geminiModel = "gemini-2.5-flash"
+      geminiModel = "gemini-2.5-flash",
+      openaiApiKey,
+      openaiModel = "gpt-4o-mini"
     } = body;
 
     // Validate query
@@ -110,7 +131,7 @@ serve(async (req) => {
     }
 
     // Validate provider
-    if (provider !== "lovable" && provider !== "gemini") {
+    if (!["lovable", "gemini", "openai"].includes(provider)) {
       return new Response(
         JSON.stringify({ error: "유효하지 않은 AI 제공자입니다" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -139,6 +160,21 @@ serve(async (req) => {
         );
       }
     }
+
+    if (provider === "openai") {
+      if (!openaiApiKey || typeof openaiApiKey !== "string" || openaiApiKey.length < 10) {
+        return new Response(
+          JSON.stringify({ error: "유효한 OpenAI API 키가 필요합니다" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (!ALLOWED_OPENAI_MODELS.includes(openaiModel)) {
+        return new Response(
+          JSON.stringify({ error: "유효하지 않은 OpenAI 모델입니다" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
     
     const mcpContext = CATEGORY_CONTEXT[categoryId] || categoryName || categoryId;
     
@@ -155,13 +191,13 @@ serve(async (req) => {
 
 위 질문에 대해 ${mcpContext}를 조회한 결과를 바탕으로 답변해주세요.`;
 
-    let response: Response;
+    let answer = "";
 
     if (provider === "gemini") {
       // Use Gemini API directly
       const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
       
-      response = await fetch(geminiApiUrl, {
+      const response = await fetch(geminiApiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -198,16 +234,64 @@ serve(async (req) => {
       }
 
       const data = await response.json();
-      const answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "답변을 생성할 수 없습니다.";
+      answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "답변을 생성할 수 없습니다.";
+    } else if (provider === "openai") {
+      // Use OpenAI API directly
+      const isNewerModel = NEWER_OPENAI_MODELS.includes(openaiModel);
+      
+      const requestBody: any = {
+        model: openaiModel,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      };
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          answer,
-          timestamp: new Date().toISOString() 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      // Use appropriate parameters based on model version
+      if (isNewerModel) {
+        requestBody.max_completion_tokens = 1024;
+        // Don't include temperature for newer models
+      } else {
+        requestBody.max_tokens = 1024;
+        requestBody.temperature = 0.7;
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openaiApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("OpenAI API error:", response.status, errorData);
+        
+        if (response.status === 401) {
+          return new Response(
+            JSON.stringify({ error: "OpenAI API 키가 유효하지 않습니다" }),
+            { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: "OpenAI API 요청 한도를 초과했습니다" }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (response.status === 402 || response.status === 403) {
+          return new Response(
+            JSON.stringify({ error: "OpenAI API 결제 또는 권한 오류입니다" }),
+            { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        throw new Error("OpenAI API 오류가 발생했습니다");
+      }
+
+      const data = await response.json();
+      answer = data.choices?.[0]?.message?.content || "답변을 생성할 수 없습니다.";
     } else {
       // Use Lovable AI Gateway
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -215,7 +299,7 @@ serve(async (req) => {
         throw new Error("AI 서비스 설정 오류가 발생했습니다");
       }
 
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -247,17 +331,17 @@ serve(async (req) => {
       }
 
       const data = await response.json();
-      const answer = data.choices?.[0]?.message?.content || "답변을 생성할 수 없습니다.";
-
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          answer,
-          timestamp: new Date().toISOString() 
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      answer = data.choices?.[0]?.message?.content || "답변을 생성할 수 없습니다.";
     }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        answer,
+        timestamp: new Date().toISOString() 
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (error) {
     // Log only error type, not full message or stack trace
     console.error("generate-answer: request failed");

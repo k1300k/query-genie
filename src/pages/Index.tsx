@@ -17,6 +17,7 @@ const DEFAULT_AI_SETTINGS: AISettings = {
   provider: 'lovable',
   generateCount: 5,
   geminiModel: 'gemini-2.5-flash',
+  openaiModel: 'gpt-4o-mini',
 };
 
 // Load AI settings from localStorage
@@ -98,6 +99,9 @@ const Index = () => {
       if (aiSettings.provider === 'gemini') {
         requestBody.geminiApiKey = aiSettings.geminiApiKey;
         requestBody.geminiModel = aiSettings.geminiModel || 'gemini-2.5-flash';
+      } else if (aiSettings.provider === 'openai') {
+        requestBody.openaiApiKey = aiSettings.openaiApiKey;
+        requestBody.openaiModel = aiSettings.openaiModel || 'gpt-4o-mini';
       } else {
         requestBody.model = 'google/gemini-2.5-flash';
       }
@@ -144,6 +148,9 @@ const Index = () => {
     if (aiSettings.provider === 'gemini') {
       requestBody.geminiApiKey = aiSettings.geminiApiKey;
       requestBody.geminiModel = aiSettings.geminiModel || 'gemini-2.5-flash';
+    } else if (aiSettings.provider === 'openai') {
+      requestBody.openaiApiKey = aiSettings.openaiApiKey;
+      requestBody.openaiModel = aiSettings.openaiModel || 'gpt-4o-mini';
     } else {
       requestBody.model = 'google/gemini-2.5-flash';
     }
