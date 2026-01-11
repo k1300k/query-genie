@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { AppHeader } from '@/components/query/AppHeader';
 import { CategorySidebar } from '@/components/query/CategorySidebar';
 import { MainToolbar } from '@/components/query/MainToolbar';
@@ -14,8 +14,22 @@ import { toast } from 'sonner';
 import { FileText } from 'lucide-react';
 
 const DEFAULT_AI_SETTINGS: AISettings = {
-  provider: 'gemini',
+  provider: 'lovable',
   generateCount: 5,
+  geminiModel: 'gemini-2.5-flash',
+};
+
+// Load AI settings from localStorage
+const loadAISettings = (): AISettings => {
+  try {
+    const stored = localStorage.getItem('ai-settings');
+    if (stored) {
+      return { ...DEFAULT_AI_SETTINGS, ...JSON.parse(stored) };
+    }
+  } catch (e) {
+    console.error('Failed to load AI settings');
+  }
+  return DEFAULT_AI_SETTINGS;
 };
 
 const Index = () => {
@@ -41,6 +55,11 @@ const Index = () => {
   const [editingQuery, setEditingQuery] = useState<QueryItem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
+
+  // Load settings on mount
+  useEffect(() => {
+    setAiSettings(loadAISettings());
+  }, []);
 
   const selectedCategory = categories.find(c => c.id === selectedCategoryId);
 
@@ -69,15 +88,22 @@ const Index = () => {
     
     setIsGenerating(true);
     try {
-      const model = aiSettings.provider === 'gemini' ? 'google/gemini-2.5-flash' : 'openai/gpt-5-mini';
+      const requestBody: Record<string, any> = {
+        categoryId: selectedCategoryId,
+        categoryName: selectedCategory.name,
+        count: aiSettings.generateCount,
+        provider: aiSettings.provider,
+      };
+
+      if (aiSettings.provider === 'gemini') {
+        requestBody.geminiApiKey = aiSettings.geminiApiKey;
+        requestBody.geminiModel = aiSettings.geminiModel || 'gemini-2.5-flash';
+      } else {
+        requestBody.model = 'google/gemini-2.5-flash';
+      }
       
       const { data, error } = await supabase.functions.invoke('generate-queries', {
-        body: {
-          categoryId: selectedCategoryId,
-          categoryName: selectedCategory.name,
-          count: aiSettings.generateCount,
-          model,
-        },
+        body: requestBody,
       });
 
       if (error) throw error;
@@ -107,15 +133,23 @@ const Index = () => {
 
   const handleGenerateAnswer = useCallback(async (query: QueryItem): Promise<string> => {
     const category = categories.find(c => c.id === query.categoryId);
-    const model = aiSettings.provider === 'gemini' ? 'google/gemini-2.5-flash' : 'openai/gpt-5-mini';
+    
+    const requestBody: Record<string, any> = {
+      query: query.text,
+      categoryId: query.categoryId,
+      categoryName: category?.name || '',
+      provider: aiSettings.provider,
+    };
+
+    if (aiSettings.provider === 'gemini') {
+      requestBody.geminiApiKey = aiSettings.geminiApiKey;
+      requestBody.geminiModel = aiSettings.geminiModel || 'gemini-2.5-flash';
+    } else {
+      requestBody.model = 'google/gemini-2.5-flash';
+    }
 
     const { data, error } = await supabase.functions.invoke('generate-answer', {
-      body: {
-        query: query.text,
-        categoryId: query.categoryId,
-        categoryName: category?.name || '',
-        model,
-      },
+      body: requestBody,
     });
 
     if (error) {
