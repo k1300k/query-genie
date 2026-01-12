@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppHeader } from '@/components/query/AppHeader';
 import { CategorySidebar } from '@/components/query/CategorySidebar';
 import { MainToolbar } from '@/components/query/MainToolbar';
@@ -7,11 +8,12 @@ import { QueryEditorModal } from '@/components/query/QueryEditorModal';
 import { CategoryModal } from '@/components/query/CategoryModal';
 import { AISettingsModal, AISettings, AIProvider } from '@/components/query/AISettingsModal';
 import { useQueryStore } from '@/hooks/useQueryStore';
+import { useAuth } from '@/hooks/useAuth';
 import { QueryItem, Category } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { FileText } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 
 const DEFAULT_AI_SETTINGS: AISettings = {
   provider: 'lovable',
@@ -34,6 +36,9 @@ const loadAISettings = (): AISettings => {
 };
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  
   const {
     categories,
     queries,
@@ -56,6 +61,13 @@ const Index = () => {
   const [editingQuery, setEditingQuery] = useState<QueryItem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
 
   // Load settings on mount
   useEffect(() => {
@@ -198,10 +210,23 @@ const Index = () => {
     toast.success(`${all ? '전체 카테고리' : '현재 카테고리'} ${format.toUpperCase()} 파일로 내보내기 완료`);
   };
 
+  // Show loading state while checking auth
+  if (authLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <AppHeader />
-      
       <div className="flex flex-1 overflow-hidden">
         <CategorySidebar
           categories={categories}
