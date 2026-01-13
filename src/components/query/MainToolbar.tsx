@@ -2,9 +2,16 @@ import { useRef } from 'react';
 import { Search, Sparkles, Plus, Download, Upload, Settings, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Category } from '@/lib/types';
 import { AIProvider } from './AISettingsModal';
+
+interface GenerationProgress {
+  current: number;
+  total: number;
+  type: 'queries' | 'answers';
+}
 
 interface MainToolbarProps {
   category: Category | undefined;
@@ -19,6 +26,7 @@ interface MainToolbarProps {
   aiProvider: AIProvider;
   isGenerating?: boolean;
   isGeneratingAnswers?: boolean;
+  generationProgress?: GenerationProgress | null;
 }
 
 export function MainToolbar({ 
@@ -33,7 +41,8 @@ export function MainToolbar({
   onOpenAISettings,
   aiProvider,
   isGenerating,
-  isGeneratingAnswers
+  isGeneratingAnswers,
+  generationProgress
 }: MainToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -51,6 +60,21 @@ export function MainToolbar({
   };
   return (
     <div className="border-b border-border bg-card px-6 py-4">
+      {/* Progress Bar */}
+      {generationProgress && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-muted-foreground">
+              {generationProgress.type === 'answers' ? '답변 생성 중' : '질의어 생성 중'}
+            </span>
+            <span className="text-sm font-medium">
+              {generationProgress.current} / {generationProgress.total}
+            </span>
+          </div>
+          <Progress value={(generationProgress.current / generationProgress.total) * 100} className="h-2" />
+        </div>
+      )}
+      
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-semibold text-foreground">

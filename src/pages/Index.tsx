@@ -12,8 +12,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { QueryItem, Category } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { FileText, Loader2 } from 'lucide-react';
+
+interface GenerationProgress {
+  current: number;
+  total: number;
+  type: 'queries' | 'answers';
+}
 
 const DEFAULT_AI_SETTINGS: AISettings = {
   provider: 'lovable',
@@ -61,6 +68,7 @@ const Index = () => {
   const [editingQuery, setEditingQuery] = useState<QueryItem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingAnswers, setIsGeneratingAnswers] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
 
   // Redirect to auth if not logged in
@@ -194,10 +202,14 @@ const Index = () => {
     }
 
     setIsGeneratingAnswers(true);
+    setGenerationProgress({ current: 0, total: queriesToProcess.length, type: 'answers' });
     let successCount = 0;
     let errorCount = 0;
 
-    for (const query of queriesToProcess) {
+    for (let i = 0; i < queriesToProcess.length; i++) {
+      const query = queriesToProcess[i];
+      setGenerationProgress({ current: i + 1, total: queriesToProcess.length, type: 'answers' });
+      
       try {
         const answer = await handleGenerateAnswer(query);
         updateQuery(query.id, { answer });
@@ -209,6 +221,7 @@ const Index = () => {
     }
 
     setIsGeneratingAnswers(false);
+    setGenerationProgress(null);
     
     if (errorCount === 0) {
       toast.success(`${successCount}개의 답변이 생성되었습니다`);
@@ -293,6 +306,7 @@ const Index = () => {
             aiProvider={aiSettings.provider}
             isGenerating={isGenerating}
             isGeneratingAnswers={isGeneratingAnswers}
+            generationProgress={generationProgress}
           />
 
           <ScrollArea className="flex-1">
