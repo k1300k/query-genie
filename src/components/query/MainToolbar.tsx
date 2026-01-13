@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Search, Sparkles, Plus, Download, Upload, Settings } from 'lucide-react';
+import { Search, Sparkles, Plus, Download, Upload, Settings, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -11,25 +11,29 @@ interface MainToolbarProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   onAutoGenerate: () => void;
+  onGenerateAllAnswers: () => void;
   onAddQuery: () => void;
   onExport: (format: 'json' | 'csv', all?: boolean) => void;
   onImportCSV: (content: string) => void;
   onOpenAISettings: () => void;
   aiProvider: AIProvider;
   isGenerating?: boolean;
+  isGeneratingAnswers?: boolean;
 }
 
 export function MainToolbar({ 
   category, 
   searchQuery, 
   onSearchChange, 
-  onAutoGenerate, 
+  onAutoGenerate,
+  onGenerateAllAnswers,
   onAddQuery,
   onExport,
   onImportCSV,
   onOpenAISettings,
   aiProvider,
-  isGenerating 
+  isGenerating,
+  isGeneratingAnswers
 }: MainToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,11 +80,21 @@ export function MainToolbar({
 
           <Button 
             onClick={onAutoGenerate} 
-            disabled={isGenerating}
+            disabled={isGenerating || isGeneratingAnswers}
             className="gap-2"
           >
             <Sparkles className="h-4 w-4" />
-            {isGenerating ? '생성 중...' : `자동 생성 (${aiProvider === 'gemini' ? 'Gemini' : 'ChatGPT'})`}
+            {isGenerating ? '생성 중...' : `자동 생성 (${aiProvider === 'gemini' ? 'Gemini' : aiProvider === 'openai' ? 'ChatGPT' : 'Lovable'})`}
+          </Button>
+
+          <Button 
+            variant="secondary"
+            onClick={onGenerateAllAnswers} 
+            disabled={isGenerating || isGeneratingAnswers}
+            className="gap-2"
+          >
+            <MessageSquare className="h-4 w-4" />
+            {isGeneratingAnswers ? '답변 생성 중...' : '전체 답변'}
           </Button>
 
           <Button variant="outline" onClick={onAddQuery} className="gap-2">
