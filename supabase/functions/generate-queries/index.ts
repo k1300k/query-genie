@@ -194,7 +194,17 @@ JSON 배열 형식으로만 응답하세요:
       });
 
       if (!response.ok) {
-        if (response.status === 400 || response.status === 401 || response.status === 403) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Gemini API error:", response.status, JSON.stringify(errorData));
+        
+        if (response.status === 400) {
+          const errorMessage = errorData?.error?.message || "잘못된 요청입니다";
+          return new Response(
+            JSON.stringify({ error: `Gemini API 오류: ${errorMessage}` }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (response.status === 401 || response.status === 403) {
           return new Response(
             JSON.stringify({ error: "Gemini API 키가 유효하지 않습니다" }),
             { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
