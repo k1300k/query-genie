@@ -60,6 +60,7 @@ const Index = () => {
   const [aiSettingsModalOpen, setAiSettingsModalOpen] = useState(false);
   const [editingQuery, setEditingQuery] = useState<QueryItem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingAnswers, setIsGeneratingAnswers] = useState(false);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
 
   // Redirect to auth if not logged in
@@ -184,6 +185,38 @@ const Index = () => {
     return data.answer;
   }, [categories, aiSettings]);
 
+  const handleGenerateAllAnswers = useCallback(async () => {
+    const queriesToProcess = filteredQueries.filter(q => !q.answer);
+    
+    if (queriesToProcess.length === 0) {
+      toast.info('답변이 없는 질의어가 없습니다');
+      return;
+    }
+
+    setIsGeneratingAnswers(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const query of queriesToProcess) {
+      try {
+        const answer = await handleGenerateAnswer(query);
+        updateQuery(query.id, { answer });
+        successCount++;
+      } catch (error) {
+        console.error(`Error generating answer for query ${query.id}:`, error);
+        errorCount++;
+      }
+    }
+
+    setIsGeneratingAnswers(false);
+    
+    if (errorCount === 0) {
+      toast.success(`${successCount}개의 답변이 생성되었습니다`);
+    } else {
+      toast.warning(`${successCount}개 성공, ${errorCount}개 실패`);
+    }
+  }, [filteredQueries, handleGenerateAnswer, updateQuery]);
+
   const handleEditQuery = (query: QueryItem) => {
     setEditingQuery(query);
     setQueryModalOpen(true);
@@ -242,6 +275,7 @@ const Index = () => {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onAutoGenerate={handleAutoGenerate}
+            onGenerateAllAnswers={handleGenerateAllAnswers}
             onAddQuery={() => {
               setEditingQuery(null);
               setQueryModalOpen(true);
@@ -258,6 +292,7 @@ const Index = () => {
             onOpenAISettings={() => setAiSettingsModalOpen(true)}
             aiProvider={aiSettings.provider}
             isGenerating={isGenerating}
+            isGeneratingAnswers={isGeneratingAnswers}
           />
 
           <ScrollArea className="flex-1">
