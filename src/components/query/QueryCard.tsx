@@ -14,7 +14,6 @@ interface QueryCardProps {
 }
 
 export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateAnswer }: QueryCardProps) {
-  const [answer, setAnswer] = useState<string | null>(query.answer || null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleGenerateAnswer = async () => {
@@ -23,7 +22,6 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
     setIsGenerating(true);
     try {
       const generatedAnswer = await onGenerateAnswer(query);
-      setAnswer(generatedAnswer);
       onUpdateAnswer?.(query.id, generatedAnswer);
     } catch (error) {
       console.error('Failed to generate answer:', error);
@@ -108,14 +106,14 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
         </div>
 
         {/* Answer Section */}
-        {answer && (
+        {query.answer && (
           <div className="mt-4 pt-4 border-t border-border">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-xs font-medium text-muted-foreground">AI 답변</span>
             </div>
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-              {answer}
+              {query.answer}
             </p>
           </div>
         )}
