@@ -347,7 +347,35 @@ JSON 배열 형식으로만 응답하세요:
       throw new Error("AI 응답을 파싱할 수 없습니다");
     }
     
-    const queries = JSON.parse(jsonMatch[0]);
+    const rawQueries = JSON.parse(jsonMatch[0]);
+
+    // URL validation function
+    const isValidUrl = (url: string): boolean => {
+      if (!url || typeof url !== 'string' || url.trim() === '') {
+        return false;
+      }
+      try {
+        const parsed = new URL(url.trim());
+        // Only allow http and https protocols
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          return false;
+        }
+        // Block potentially dangerous patterns
+        if (parsed.hostname.includes('..') || parsed.hostname.length > 255) {
+          return false;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    // Validate and sanitize queries
+    const queries = rawQueries.map((q: { text: string; tags: string[]; sourceUrl?: string }) => ({
+      text: String(q.text || '').slice(0, 500),
+      tags: Array.isArray(q.tags) ? q.tags.map((t: string) => String(t).slice(0, 50)).slice(0, 10) : [],
+      sourceUrl: q.sourceUrl && isValidUrl(q.sourceUrl) ? q.sourceUrl.trim() : undefined,
+    })).filter((q: { text: string }) => q.text.length > 0);
 
     return new Response(
       JSON.stringify({ 
