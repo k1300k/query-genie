@@ -17,6 +17,7 @@ export interface QueryItem {
   source: 'generated' | 'manual';
   status: 'active' | 'archived';
   answer?: string;
+  sourceUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

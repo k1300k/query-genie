@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit2, Trash2, Sparkles, User, MessageCircle, Loader2 } from 'lucide-react';
+import { Edit2, Trash2, Sparkles, User, MessageCircle, Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,7 +45,7 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
                 </Badge>
               ))}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge 
                 variant={query.source === 'generated' ? 'default' : 'outline'} 
                 className="text-xs gap-1"
@@ -62,6 +62,18 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
                   </>
                 )}
               </Badge>
+              
+              {query.sourceUrl && (
+                <a
+                  href={query.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  출처
+                </a>
+              )}
               
               <Button
                 variant="outline"

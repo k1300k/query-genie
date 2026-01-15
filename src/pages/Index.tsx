@@ -138,10 +138,11 @@ const Index = () => {
         return;
       }
 
-      const generatedQueries = data.data.map((q: { text: string; tags: string[] }) => ({
+      const generatedQueries = data.data.map((q: { text: string; tags: string[]; sourceUrl?: string }) => ({
         categoryId: selectedCategoryId,
         text: q.text,
         tags: q.tags,
+        sourceUrl: q.sourceUrl || undefined,
         source: 'generated' as const,
         status: 'active' as const,
       }));
