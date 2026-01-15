@@ -109,11 +109,14 @@ const Index = () => {
     if (!selectedCategory) return;
     
     setIsGenerating(true);
+    const totalCount = aiSettings.generateCount;
+    setGenerationProgress({ current: 0, total: totalCount, type: 'queries' });
+    
     try {
       const requestBody: Record<string, any> = {
         categoryId: selectedCategoryId,
         categoryName: selectedCategory.name,
-        count: aiSettings.generateCount,
+        count: totalCount,
         provider: aiSettings.provider,
       };
 
@@ -126,10 +129,20 @@ const Index = () => {
       } else {
         requestBody.model = 'google/gemini-2.5-flash';
       }
+
+      // Show progress while waiting for API
+      const progressInterval = setInterval(() => {
+        setGenerationProgress(prev => {
+          if (!prev || prev.current >= prev.total - 1) return prev;
+          return { ...prev, current: prev.current + 1 };
+        });
+      }, 500);
       
       const { data, error } = await supabase.functions.invoke('generate-queries', {
         body: requestBody,
       });
+
+      clearInterval(progressInterval);
 
       if (error) throw error;
       
@@ -147,6 +160,7 @@ const Index = () => {
         status: 'active' as const,
       }));
 
+      setGenerationProgress({ current: totalCount, total: totalCount, type: 'queries' });
       addQueries(generatedQueries);
       toast.success(`${generatedQueries.length}개의 질의어가 AI로 생성되었습니다`);
     } catch (error) {
@@ -154,6 +168,7 @@ const Index = () => {
       toast.error('질의어 생성 중 오류가 발생했습니다');
     } finally {
       setIsGenerating(false);
+      setGenerationProgress(null);
     }
   };
 
