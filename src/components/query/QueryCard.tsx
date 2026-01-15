@@ -35,9 +35,23 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground mb-2 leading-relaxed">
+          <p className="text-sm font-medium text-foreground mb-2 leading-relaxed">
               "{query.text}"
             </p>
+            
+            {/* Source URL - below query text */}
+            {query.sourceUrl && (
+              <a
+                href={query.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline mb-2"
+              >
+                <ExternalLink className="h-3 w-3" />
+                {query.sourceUrl.length > 50 ? query.sourceUrl.slice(0, 50) + '...' : query.sourceUrl}
+              </a>
+            )}
+            
             <div className="flex flex-wrap gap-1.5 mb-3">
               {query.tags.map((tag, index) => (
                 <Badge key={index} variant="secondary" className="text-xs">
@@ -62,18 +76,6 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
                   </>
                 )}
               </Badge>
-              
-              {query.sourceUrl && (
-                <a
-                  href={query.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  출처
-                </a>
-              )}
               
               <Button
                 variant="outline"
