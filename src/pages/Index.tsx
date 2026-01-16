@@ -105,6 +105,17 @@ const Index = () => {
     return result;
   }, [selectedCategoryId, searchQuery, getQueriesByCategory]);
 
+  // Get AI engine display name
+  const getAiEngineName = useCallback(() => {
+    if (aiSettings.provider === 'gemini') {
+      return aiSettings.geminiModel || 'gemini-2.5-flash';
+    } else if (aiSettings.provider === 'openai') {
+      return aiSettings.openaiModel || 'gpt-4o-mini';
+    } else {
+      return 'gemini-2.5-flash';
+    }
+  }, [aiSettings]);
+
   const handleAutoGenerate = async () => {
     if (!selectedCategory) return;
     
@@ -151,18 +162,45 @@ const Index = () => {
         return;
       }
 
-      const generatedQueries = data.data.map((q: { text: string; tags: string[]; sourceUrl?: string }) => ({
-        categoryId: selectedCategoryId,
-        text: q.text,
-        tags: q.tags,
-        sourceUrl: q.sourceUrl || undefined,
-        source: 'generated' as const,
-        status: 'active' as const,
-      }));
+      const aiEngineName = getAiEngineName();
+      
+      // Get existing query texts for duplicate check
+      const existingTexts = new Set(
+        queries.filter(q => q.categoryId === selectedCategoryId).map(q => q.text.toLowerCase().trim())
+      );
+
+      const generatedQueries = data.data
+        .map((q: { text: string; tags: string[]; sourceUrl?: string }) => ({
+          categoryId: selectedCategoryId,
+          text: q.text,
+          tags: q.tags,
+          sourceUrl: q.sourceUrl || undefined,
+          aiEngine: aiEngineName,
+          source: 'generated' as const,
+          status: 'active' as const,
+        }))
+        .filter((q: { text: string }) => !existingTexts.has(q.text.toLowerCase().trim()));
+
+      // Remove duplicates within generated queries
+      const uniqueQueries = generatedQueries.filter((q: { text: string }, index: number, self: { text: string }[]) => 
+        index === self.findIndex(t => t.text.toLowerCase().trim() === q.text.toLowerCase().trim())
+      );
 
       setGenerationProgress({ current: totalCount, total: totalCount, type: 'queries' });
-      addQueries(generatedQueries);
-      toast.success(`${generatedQueries.length}개의 질의어가 AI로 생성되었습니다`);
+      
+      if (uniqueQueries.length === 0) {
+        toast.info('생성된 질의어가 모두 중복입니다');
+        return;
+      }
+
+      const duplicateCount = data.data.length - uniqueQueries.length;
+      addQueries(uniqueQueries);
+      
+      if (duplicateCount > 0) {
+        toast.success(`${uniqueQueries.length}개 생성됨 (${duplicateCount}개 중복 제외)`);
+      } else {
+        toast.success(`${uniqueQueries.length}개의 질의어가 AI로 생성되었습니다`);
+      }
     } catch (error) {
       console.error('Generation error:', error);
       toast.error('질의어 생성 중 오류가 발생했습니다');
@@ -221,6 +259,10 @@ const Index = () => {
     setGenerationProgress({ current: 0, total: queriesToProcess.length, type: 'answers' });
     let successCount = 0;
     let errorCount = 0;
+    const aiEngineName = getAiEngineName();
+
+    // Track generated answers for duplicate detection
+    const generatedAnswers = new Set<string>();
 
     for (let i = 0; i < queriesToProcess.length; i++) {
       const query = queriesToProcess[i];
@@ -228,8 +270,18 @@ const Index = () => {
       
       try {
         const answer = await handleGenerateAnswer(query);
-        updateQuery(query.id, { answer });
-        successCount++;
+        const normalizedAnswer = answer.toLowerCase().trim();
+        
+        // Check for duplicate answers
+        if (!generatedAnswers.has(normalizedAnswer)) {
+          generatedAnswers.add(normalizedAnswer);
+          updateQuery(query.id, { answer, aiEngine: aiEngineName });
+          successCount++;
+        } else {
+          // Mark as duplicate but still save with note
+          updateQuery(query.id, { answer: `${answer}\n\n[중복 답변]`, aiEngine: aiEngineName });
+          successCount++;
+        }
       } catch (error) {
         console.error(`Error generating answer for query ${query.id}:`, error);
         errorCount++;
@@ -244,7 +296,7 @@ const Index = () => {
     } else {
       toast.warning(`${successCount}개 성공, ${errorCount}개 실패`);
     }
-  }, [filteredQueries, handleGenerateAnswer, updateQuery]);
+  }, [filteredQueries, handleGenerateAnswer, updateQuery, getAiEngineName]);
 
   const handleEditQuery = (query: QueryItem) => {
     setEditingQuery(query);
