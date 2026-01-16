@@ -79,7 +79,7 @@ export function useQueryStore() {
       a.click();
       URL.revokeObjectURL(url);
     } else {
-      const headers = ['id', 'categoryId', 'text', 'tags', 'source', 'status', 'answer', 'createdAt', 'updatedAt'];
+      const headers = ['id', 'categoryId', 'text', 'tags', 'source', 'status', 'answer', 'sourceUrl', 'aiEngine', 'createdAt', 'updatedAt'];
       const csvContent = [
         headers.join(','),
         ...dataToExport.map(q => [
@@ -90,6 +90,8 @@ export function useQueryStore() {
           q.source,
           q.status,
           `"${(q.answer || '').replace(/"/g, '""').replace(/\n/g, '\\n')}"`,
+          `"${(q.sourceUrl || '').replace(/"/g, '""')}"`,
+          q.aiEngine || '',
           q.createdAt,
           q.updatedAt
         ].join(','))
@@ -180,6 +182,8 @@ export function useQueryStore() {
         const sourceIndex = headers.indexOf('source');
         const statusIndex = headers.indexOf('status');
         const answerIndex = headers.indexOf('answer');
+        const sourceUrlIndex = headers.indexOf('sourceUrl');
+        const aiEngineIndex = headers.indexOf('aiEngine');
 
         let text = textIndex >= 0 ? values[textIndex]?.replace(/""/g, '"') : values[2]?.replace(/""/g, '"');
         const tagsRaw = tagsIndex >= 0 ? values[tagsIndex] : values[3];
@@ -187,10 +191,13 @@ export function useQueryStore() {
         let answerRaw = answerIndex >= 0 ? values[answerIndex]?.replace(/""/g, '"').replace(/\\n/g, '\n') : undefined;
         const sourceRaw = sourceIndex >= 0 ? values[sourceIndex] : 'manual';
         const statusRaw = statusIndex >= 0 ? values[statusIndex] : 'active';
+        let sourceUrlRaw = sourceUrlIndex >= 0 ? values[sourceUrlIndex]?.replace(/""/g, '"') : undefined;
+        const aiEngineRaw = aiEngineIndex >= 0 ? values[aiEngineIndex] : undefined;
 
         // Security: Sanitize text fields
         text = sanitizeForCSV(text || '');
         answerRaw = answerRaw ? sanitizeForCSV(answerRaw) : undefined;
+        sourceUrlRaw = sourceUrlRaw ? sanitizeForCSV(sourceUrlRaw) : undefined;
 
         // Security: Validate text length
         if (text.length > MAX_TEXT_LENGTH) {
@@ -225,6 +232,8 @@ export function useQueryStore() {
             source,
             status,
             answer: answerRaw || undefined,
+            sourceUrl: sourceUrlRaw || undefined,
+            aiEngine: aiEngineRaw || undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           });
