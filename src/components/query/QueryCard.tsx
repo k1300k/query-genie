@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit2, Trash2, Sparkles, User, MessageCircle, Loader2, ExternalLink } from 'lucide-react';
+import { Edit2, Trash2, Sparkles, User, MessageCircle, Loader2, ExternalLink, Cpu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -76,6 +76,14 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
                   </>
                 )}
               </Badge>
+              
+              {/* AI Engine Tag */}
+              {query.aiEngine && (
+                <Badge variant="secondary" className="text-xs gap-1">
+                  <Cpu className="h-3 w-3" />
+                  {query.aiEngine}
+                </Badge>
+              )}
               
               <Button
                 variant="outline"

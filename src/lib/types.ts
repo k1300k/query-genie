@@ -18,6 +18,7 @@ export interface QueryItem {
   status: 'active' | 'archived';
   answer?: string;
   sourceUrl?: string;
+  aiEngine?: string;
   createdAt: string;
   updatedAt: string;
 }
