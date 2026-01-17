@@ -7,6 +7,7 @@ import { QueryCard } from '@/components/query/QueryCard';
 import { QueryEditorModal } from '@/components/query/QueryEditorModal';
 import { CategoryModal } from '@/components/query/CategoryModal';
 import { AISettingsModal, AISettings, AIProvider } from '@/components/query/AISettingsModal';
+import { AIStatsDashboard } from '@/components/query/AIStatsDashboard';
 import { useQueryStore } from '@/hooks/useQueryStore';
 import { useAuth } from '@/hooks/useAuth';
 import { QueryItem, Category } from '@/lib/types';
@@ -342,13 +343,18 @@ const Index = () => {
     <div className="h-screen flex flex-col bg-background">
       <AppHeader />
       <div className="flex flex-1 overflow-hidden">
-        <CategorySidebar
-          categories={categories}
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategory={setSelectedCategoryId}
-          onAddCategory={() => setCategoryModalOpen(true)}
-          queryCounts={queryCounts}
-        />
+        <div className="flex flex-col">
+          <CategorySidebar
+            categories={categories}
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategory={setSelectedCategoryId}
+            onAddCategory={() => setCategoryModalOpen(true)}
+            queryCounts={queryCounts}
+          />
+          <div className="p-3 border-r border-border">
+            <AIStatsDashboard queries={queries} />
+          </div>
+        </div>
 
         <main className="flex-1 flex flex-col overflow-hidden">
           <MainToolbar
