@@ -10,12 +10,15 @@ import { AISettingsModal, AISettings, AIProvider } from '@/components/query/AISe
 import { AIStatsDashboard } from '@/components/query/AIStatsDashboard';
 import { useQueryStore } from '@/hooks/useQueryStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { QueryItem, Category } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { FileText, Loader2 } from 'lucide-react';
+import { FileText, Loader2, Menu, BarChart3 } from 'lucide-react';
 
 interface GenerationProgress {
   current: number;
@@ -71,6 +74,9 @@ const Index = () => {
   const [isGeneratingAnswers, setIsGeneratingAnswers] = useState(false);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
   const [aiSettings, setAiSettings] = useState<AISettings>(DEFAULT_AI_SETTINGS);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -341,20 +347,57 @@ const Index = () => {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <AppHeader />
+      <AppHeader 
+        onMenuClick={() => setSidebarOpen(true)} 
+        onStatsClick={() => setStatsOpen(true)}
+        isMobile={isMobile}
+      />
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex flex-col">
-          <CategorySidebar
-            categories={categories}
-            selectedCategoryId={selectedCategoryId}
-            onSelectCategory={setSelectedCategoryId}
-            onAddCategory={() => setCategoryModalOpen(true)}
-            queryCounts={queryCounts}
-          />
-          <div className="p-3 border-r border-border">
-            <AIStatsDashboard queries={queries} />
+        {/* Desktop Sidebar */}
+        {!isMobile && (
+          <div className="flex flex-col">
+            <CategorySidebar
+              categories={categories}
+              selectedCategoryId={selectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+              onAddCategory={() => setCategoryModalOpen(true)}
+              queryCounts={queryCounts}
+            />
+            <div className="p-3 border-r border-border">
+              <AIStatsDashboard queries={queries} />
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Mobile Sidebar Sheet */}
+        {isMobile && (
+          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+            <SheetContent side="left" className="p-0 w-[300px]">
+              <CategorySidebar
+                categories={categories}
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategory={(id) => {
+                  setSelectedCategoryId(id);
+                  setSidebarOpen(false);
+                }}
+                onAddCategory={() => {
+                  setCategoryModalOpen(true);
+                  setSidebarOpen(false);
+                }}
+                queryCounts={queryCounts}
+              />
+            </SheetContent>
+          </Sheet>
+        )}
+
+        {/* Mobile Stats Sheet */}
+        {isMobile && (
+          <Sheet open={statsOpen} onOpenChange={setStatsOpen}>
+            <SheetContent side="right" className="p-4 w-[300px]">
+              <AIStatsDashboard queries={queries} />
+            </SheetContent>
+          </Sheet>
+        )}
 
         <main className="flex-1 flex flex-col overflow-hidden">
           <MainToolbar
@@ -381,12 +424,13 @@ const Index = () => {
             isGenerating={isGenerating}
             isGeneratingAnswers={isGeneratingAnswers}
             generationProgress={generationProgress}
+            isMobile={isMobile}
           />
 
           <ScrollArea className="flex-1">
-            <div className="p-6">
+            <div className="p-3 md:p-6">
               {filteredQueries.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
                   {filteredQueries.map(query => (
                     <QueryCard
                       key={query.id}
@@ -399,10 +443,10 @@ const Index = () => {
                   ))}
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground px-4">
                   <FileText className="h-12 w-12 mb-4 opacity-50" />
-                  <p className="text-lg font-medium">질의어가 없습니다</p>
-                  <p className="text-sm mt-1">
+                  <p className="text-lg font-medium text-center">질의어가 없습니다</p>
+                  <p className="text-sm mt-1 text-center">
                     '자동 생성' 또는 '추가' 버튼을 클릭하여 질의어를 추가하세요
                   </p>
                 </div>
