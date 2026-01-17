@@ -133,6 +133,12 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-xs font-medium text-muted-foreground">AI 답변</span>
+              {query.aiEngine && (
+                <Badge variant="outline" className="text-xs gap-1 ml-auto">
+                  <Cpu className="h-3 w-3" />
+                  {query.aiEngine}
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
               {query.answer}
