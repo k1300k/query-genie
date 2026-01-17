@@ -1,4 +1,4 @@
-import { Bot, Bell, LogOut } from 'lucide-react';
+import { Bot, Bell, LogOut, Menu, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -6,7 +6,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-export function AppHeader() {
+interface AppHeaderProps {
+  onMenuClick?: () => void;
+  onStatsClick?: () => void;
+  isMobile?: boolean;
+}
+
+export function AppHeader({ onMenuClick, onStatsClick, isMobile }: AppHeaderProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -26,17 +32,31 @@ export function AppHeader() {
   };
 
   return (
-    <header className="h-14 border-b border-border bg-card px-4 flex items-center justify-between">
-      <div className="flex items-center gap-3">
+    <header className="h-14 border-b border-border bg-card px-3 md:px-4 flex items-center justify-between">
+      <div className="flex items-center gap-2 md:gap-3">
+        {/* Mobile Menu Button */}
+        {isMobile && onMenuClick && (
+          <Button variant="ghost" size="icon" onClick={onMenuClick}>
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
+        
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground">
           <Bot className="h-5 w-5" />
         </div>
-        <h1 className="text-lg font-semibold text-foreground">
-          AI Agent 질의어 관리
+        <h1 className="text-base md:text-lg font-semibold text-foreground truncate">
+          {isMobile ? 'AI Agent' : 'AI Agent 질의어 관리'}
         </h1>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 md:gap-2">
+        {/* Mobile Stats Button */}
+        {isMobile && onStatsClick && (
+          <Button variant="ghost" size="icon" onClick={onStatsClick}>
+            <BarChart3 className="h-5 w-5" />
+          </Button>
+        )}
+
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
@@ -45,11 +65,13 @@ export function AppHeader() {
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2 px-2">
+              <Button variant="ghost" className="gap-1 md:gap-2 px-2">
                 <Avatar className="h-7 w-7">
                   <AvatarFallback className="text-xs bg-secondary">{getInitials()}</AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium max-w-32 truncate">{user.email}</span>
+                {!isMobile && (
+                  <span className="text-sm font-medium max-w-32 truncate">{user.email}</span>
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

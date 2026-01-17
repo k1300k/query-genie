@@ -31,7 +31,7 @@ export function CategorySidebar({
   queryCounts 
 }: CategorySidebarProps) {
   return (
-    <aside className="w-[280px] border-r border-border bg-sidebar flex flex-col h-full">
+    <aside className="w-full md:w-[280px] border-r border-border bg-sidebar flex flex-col h-full">
       <div className="p-4 border-b border-sidebar-border">
         <h2 className="text-sm font-semibold text-sidebar-foreground">카테고리</h2>
       </div>

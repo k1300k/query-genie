@@ -1,9 +1,9 @@
 import { useRef } from 'react';
-import { Search, Sparkles, Plus, Download, Upload, Settings, MessageSquare } from 'lucide-react';
+import { Search, Sparkles, Plus, Download, Upload, Settings, MessageSquare, MoreVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Category } from '@/lib/types';
 import { AIProvider } from './AISettingsModal';
 
@@ -27,6 +27,7 @@ interface MainToolbarProps {
   isGenerating?: boolean;
   isGeneratingAnswers?: boolean;
   generationProgress?: GenerationProgress | null;
+  isMobile?: boolean;
 }
 
 export function MainToolbar({ 
@@ -42,7 +43,8 @@ export function MainToolbar({
   aiProvider,
   isGenerating,
   isGeneratingAnswers,
-  generationProgress
+  generationProgress,
+  isMobile
 }: MainToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,6 +60,124 @@ export function MainToolbar({
       e.target.value = '';
     }
   };
+
+  // Mobile Layout
+  if (isMobile) {
+    return (
+      <div className="border-b border-border bg-card px-3 py-3">
+        {/* Progress Bar */}
+        {generationProgress && (
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-muted-foreground">
+                {generationProgress.type === 'answers' ? '답변 생성 중' : '질의어 생성 중'}
+              </span>
+              <span className="text-xs font-medium">
+                {generationProgress.current} / {generationProgress.total}
+              </span>
+            </div>
+            <Progress value={(generationProgress.current / generationProgress.total) * 100} className="h-2" />
+          </div>
+        )}
+
+        {/* Category Name */}
+        <div className="mb-3">
+          <h1 className="text-lg font-semibold text-foreground truncate">
+            {category?.name || '카테고리 선택'}
+          </h1>
+          {category && (
+            <p className="text-xs text-muted-foreground truncate">{category.description}</p>
+          )}
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="질의어 검색..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={onAutoGenerate} 
+            disabled={isGenerating || isGeneratingAnswers}
+            className="flex-1 gap-1 text-sm"
+            size="sm"
+          >
+            <Sparkles className="h-4 w-4" />
+            {isGenerating ? '생성 중...' : '자동 생성'}
+          </Button>
+
+          <Button 
+            variant="secondary"
+            onClick={onGenerateAllAnswers} 
+            disabled={isGenerating || isGeneratingAnswers}
+            className="gap-1"
+            size="sm"
+          >
+            <MessageSquare className="h-4 w-4" />
+            {isGeneratingAnswers ? '...' : '답변'}
+          </Button>
+
+          <Button variant="outline" onClick={onAddQuery} size="icon" className="shrink-0">
+            <Plus className="h-4 w-4" />
+          </Button>
+
+          {/* More Actions Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="shrink-0">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onOpenAISettings}>
+                <Settings className="h-4 w-4 mr-2" />
+                AI 설정
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onExport('json')}>
+                <Download className="h-4 w-4 mr-2" />
+                JSON 내보내기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('csv')}>
+                <Download className="h-4 w-4 mr-2" />
+                CSV 내보내기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('json', true)}>
+                <Download className="h-4 w-4 mr-2" />
+                전체 JSON 내보내기
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExport('csv', true)}>
+                <Download className="h-4 w-4 mr-2" />
+                전체 CSV 내보내기
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-4 w-4 mr-2" />
+                불러오기
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+      </div>
+    );
+  }
+
+  // Desktop Layout
   return (
     <div className="border-b border-border bg-card px-6 py-4">
       {/* Progress Bar */}
