@@ -310,10 +310,24 @@ serve(async (req) => {
       answer = data.choices?.[0]?.message?.content || "답변을 생성할 수 없습니다.";
     }
 
+    // Simple token estimation function (approximately 3 characters per token for Korean/mixed text)
+    const estimateTokens = (text: string): number => {
+      return Math.ceil(text.length / 3);
+    };
+
+    const answerLength = answer.length;
+    const answerTokens = {
+      promptTokens: estimateTokens(systemPrompt + userPrompt),
+      completionTokens: estimateTokens(answer),
+      totalTokens: estimateTokens(systemPrompt + userPrompt + answer),
+    };
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         answer,
+        answerLength,
+        answerTokens,
         timestamp: new Date().toISOString() 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

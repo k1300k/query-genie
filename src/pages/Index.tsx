@@ -11,7 +11,7 @@ import { AIStatsDashboard } from '@/components/query/AIStatsDashboard';
 import { useQueryStore } from '@/hooks/useQueryStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { QueryItem, Category } from '@/lib/types';
+import { QueryItem, Category, TokenUsage } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
@@ -177,12 +177,14 @@ const Index = () => {
       );
 
       const generatedQueries = data.data
-        .map((q: { text: string; tags: string[]; sourceUrl?: string }) => ({
+        .map((q: { text: string; tags: string[]; sourceUrl?: string; queryLength?: number; queryTokens?: { promptTokens?: number; completionTokens?: number; totalTokens?: number } }) => ({
           categoryId: selectedCategoryId,
           text: q.text,
           tags: q.tags,
           sourceUrl: q.sourceUrl || undefined,
           aiEngine: aiEngineName,
+          queryLength: q.queryLength || q.text.length,
+          queryTokens: q.queryTokens,
           source: 'generated' as const,
           status: 'active' as const,
         }))
@@ -217,7 +219,7 @@ const Index = () => {
     }
   };
 
-  const handleGenerateAnswer = useCallback(async (query: QueryItem): Promise<string> => {
+  const handleGenerateAnswer = useCallback(async (query: QueryItem): Promise<{ answer: string; answerLength?: number; answerTokens?: TokenUsage }> => {
     const category = categories.find(c => c.id === query.categoryId);
     
     const requestBody: Record<string, any> = {
@@ -251,7 +253,12 @@ const Index = () => {
       throw new Error(data.error);
     }
 
-    return data.answer;
+    // Return full data with length and token info
+    return {
+      answer: data.answer,
+      answerLength: data.answerLength,
+      answerTokens: data.answerTokens,
+    };
   }, [categories, aiSettings]);
 
   const handleGenerateAllAnswers = useCallback(async () => {
@@ -276,17 +283,27 @@ const Index = () => {
       setGenerationProgress({ current: i + 1, total: queriesToProcess.length, type: 'answers' });
       
       try {
-        const answer = await handleGenerateAnswer(query);
-        const normalizedAnswer = answer.toLowerCase().trim();
+        const result = await handleGenerateAnswer(query);
+        const normalizedAnswer = result.answer.toLowerCase().trim();
         
         // Check for duplicate answers
         if (!generatedAnswers.has(normalizedAnswer)) {
           generatedAnswers.add(normalizedAnswer);
-          updateQuery(query.id, { answer, aiEngine: aiEngineName });
+          updateQuery(query.id, { 
+            answer: result.answer, 
+            answerLength: result.answerLength,
+            answerTokens: result.answerTokens,
+            aiEngine: aiEngineName 
+          });
           successCount++;
         } else {
           // Mark as duplicate but still save with note
-          updateQuery(query.id, { answer: `${answer}\n\n[중복 답변]`, aiEngine: aiEngineName });
+          updateQuery(query.id, { 
+            answer: `${result.answer}\n\n[중복 답변]`, 
+            answerLength: result.answerLength,
+            answerTokens: result.answerTokens,
+            aiEngine: aiEngineName 
+          });
           successCount++;
         }
       } catch (error) {
@@ -438,7 +455,7 @@ const Index = () => {
                       onEdit={handleEditQuery}
                       onDelete={handleDeleteQuery}
                       onGenerateAnswer={handleGenerateAnswer}
-                      onUpdateAnswer={(id, answer) => updateQuery(id, { answer })}
+                      onUpdateAnswer={(id, updates) => updateQuery(id, updates)}
                     />
                   ))}
                 </div>

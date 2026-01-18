@@ -79,7 +79,7 @@ export function useQueryStore() {
       a.click();
       URL.revokeObjectURL(url);
     } else {
-      const headers = ['id', 'categoryId', 'text', 'tags', 'source', 'status', 'answer', 'sourceUrl', 'aiEngine', 'createdAt', 'updatedAt'];
+      const headers = ['id', 'categoryId', 'text', 'tags', 'source', 'status', 'answer', 'sourceUrl', 'aiEngine', 'queryLength', 'answerLength', 'queryTokens', 'answerTokens', 'createdAt', 'updatedAt'];
       const csvContent = [
         headers.join(','),
         ...dataToExport.map(q => [
@@ -92,6 +92,10 @@ export function useQueryStore() {
           `"${(q.answer || '').replace(/"/g, '""').replace(/\n/g, '\\n')}"`,
           `"${(q.sourceUrl || '').replace(/"/g, '""')}"`,
           q.aiEngine || '',
+          q.queryLength || '',
+          q.answerLength || '',
+          q.queryTokens ? JSON.stringify(q.queryTokens) : '',
+          q.answerTokens ? JSON.stringify(q.answerTokens) : '',
           q.createdAt,
           q.updatedAt
         ].join(','))
@@ -184,6 +188,10 @@ export function useQueryStore() {
         const answerIndex = headers.indexOf('answer');
         const sourceUrlIndex = headers.indexOf('sourceUrl');
         const aiEngineIndex = headers.indexOf('aiEngine');
+        const queryLengthIndex = headers.indexOf('queryLength');
+        const answerLengthIndex = headers.indexOf('answerLength');
+        const queryTokensIndex = headers.indexOf('queryTokens');
+        const answerTokensIndex = headers.indexOf('answerTokens');
 
         let text = textIndex >= 0 ? values[textIndex]?.replace(/""/g, '"') : values[2]?.replace(/""/g, '"');
         const tagsRaw = tagsIndex >= 0 ? values[tagsIndex] : values[3];
@@ -193,6 +201,10 @@ export function useQueryStore() {
         const statusRaw = statusIndex >= 0 ? values[statusIndex] : 'active';
         let sourceUrlRaw = sourceUrlIndex >= 0 ? values[sourceUrlIndex]?.replace(/""/g, '"') : undefined;
         const aiEngineRaw = aiEngineIndex >= 0 ? values[aiEngineIndex] : undefined;
+        const queryLengthRaw = queryLengthIndex >= 0 ? values[queryLengthIndex] : undefined;
+        const answerLengthRaw = answerLengthIndex >= 0 ? values[answerLengthIndex] : undefined;
+        const queryTokensRaw = queryTokensIndex >= 0 ? values[queryTokensIndex] : undefined;
+        const answerTokensRaw = answerTokensIndex >= 0 ? values[answerTokensIndex] : undefined;
 
         // Security: Sanitize text fields
         text = sanitizeForCSV(text || '');
@@ -223,6 +235,16 @@ export function useQueryStore() {
               .map(tag => sanitizeForCSV(tag).slice(0, MAX_TAG_LENGTH))
           : [];
 
+        // Parse token data
+        let queryTokens;
+        let answerTokens;
+        try {
+          if (queryTokensRaw) queryTokens = JSON.parse(queryTokensRaw);
+          if (answerTokensRaw) answerTokens = JSON.parse(answerTokensRaw);
+        } catch {
+          // Ignore JSON parse errors for tokens
+        }
+
         if (text && categoryId) {
           imported.push({
             id: crypto.randomUUID(),
@@ -234,6 +256,10 @@ export function useQueryStore() {
             answer: answerRaw || undefined,
             sourceUrl: sourceUrlRaw || undefined,
             aiEngine: aiEngineRaw || undefined,
+            queryLength: queryLengthRaw ? parseInt(queryLengthRaw) : undefined,
+            answerLength: answerLengthRaw ? parseInt(answerLengthRaw) : undefined,
+            queryTokens,
+            answerTokens,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           });

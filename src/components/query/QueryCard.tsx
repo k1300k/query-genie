@@ -1,16 +1,23 @@
 import { useState } from 'react';
-import { Edit2, Trash2, Sparkles, User, MessageCircle, Loader2, ExternalLink, Cpu } from 'lucide-react';
+import { Edit2, Trash2, Sparkles, User, MessageCircle, Loader2, ExternalLink, Cpu, FileText, Hash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { QueryItem } from '@/lib/types';
+import { QueryItem, TokenUsage } from '@/lib/types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+interface AnswerResult {
+  answer: string;
+  answerLength?: number;
+  answerTokens?: TokenUsage;
+}
 
 interface QueryCardProps {
   query: QueryItem;
   onEdit: (query: QueryItem) => void;
   onDelete: (id: string) => void;
-  onGenerateAnswer?: (query: QueryItem) => Promise<string>;
-  onUpdateAnswer?: (id: string, answer: string) => void;
+  onGenerateAnswer?: (query: QueryItem) => Promise<AnswerResult>;
+  onUpdateAnswer?: (id: string, updates: { answer: string; answerLength?: number; answerTokens?: TokenUsage }) => void;
 }
 
 export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateAnswer }: QueryCardProps) {
@@ -21,8 +28,12 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
     
     setIsGenerating(true);
     try {
-      const generatedAnswer = await onGenerateAnswer(query);
-      onUpdateAnswer?.(query.id, generatedAnswer);
+      const result = await onGenerateAnswer(query);
+      onUpdateAnswer?.(query.id, {
+        answer: result.answer,
+        answerLength: result.answerLength,
+        answerTokens: result.answerTokens,
+      });
     } catch (error) {
       console.error('Failed to generate answer:', error);
     } finally {
@@ -84,6 +95,35 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
                   {query.aiEngine}
                 </Badge>
               )}
+
+              {/* Query Length & Token Info */}
+              {(query.queryLength || query.queryTokens) && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="text-xs gap-1 cursor-help">
+                        <FileText className="h-3 w-3" />
+                        {query.queryLength || query.text.length}자
+                        {query.queryTokens?.completionTokens && (
+                          <span className="text-muted-foreground">/ {query.queryTokens.completionTokens}토큰</span>
+                        )}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-xs space-y-1">
+                        <p>길이: {query.queryLength || query.text.length}자</p>
+                        {query.queryTokens && (
+                          <>
+                            <p>프롬프트 토큰: {query.queryTokens.promptTokens}</p>
+                            <p>완료 토큰: {query.queryTokens.completionTokens}</p>
+                            <p>총 토큰: {query.queryTokens.totalTokens}</p>
+                          </>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               
               <Button
                 variant="outline"
@@ -130,14 +170,42 @@ export function QueryCard({ query, onEdit, onDelete, onGenerateAnswer, onUpdateA
         {/* Answer Section */}
         {query.answer && (
           <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-xs font-medium text-muted-foreground">AI 답변</span>
               {query.aiEngine && (
-                <Badge variant="outline" className="text-xs gap-1 ml-auto">
+                <Badge variant="outline" className="text-xs gap-1">
                   <Cpu className="h-3 w-3" />
                   {query.aiEngine}
                 </Badge>
+              )}
+              {/* Answer Length & Token Info */}
+              {(query.answerLength || query.answerTokens) && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="outline" className="text-xs gap-1 cursor-help ml-auto">
+                        <Hash className="h-3 w-3" />
+                        {query.answerLength || query.answer.length}자
+                        {query.answerTokens?.completionTokens && (
+                          <span className="text-muted-foreground">/ {query.answerTokens.completionTokens}토큰</span>
+                        )}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-xs space-y-1">
+                        <p>길이: {query.answerLength || query.answer.length}자</p>
+                        {query.answerTokens && (
+                          <>
+                            <p>프롬프트 토큰: {query.answerTokens.promptTokens}</p>
+                            <p>완료 토큰: {query.answerTokens.completionTokens}</p>
+                            <p>총 토큰: {query.answerTokens.totalTokens}</p>
+                          </>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
