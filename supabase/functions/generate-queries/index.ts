@@ -370,12 +370,26 @@ JSON 배열 형식으로만 응답하세요:
       }
     };
 
-    // Validate and sanitize queries
-    const queries = rawQueries.map((q: { text: string; tags: string[]; sourceUrl?: string }) => ({
-      text: String(q.text || '').slice(0, 500),
-      tags: Array.isArray(q.tags) ? q.tags.map((t: string) => String(t).slice(0, 50)).slice(0, 10) : [],
-      sourceUrl: q.sourceUrl && isValidUrl(q.sourceUrl) ? q.sourceUrl.trim() : undefined,
-    })).filter((q: { text: string }) => q.text.length > 0);
+    // Simple token estimation function (approximately 4 characters per token for Korean/mixed text)
+    const estimateTokens = (text: string): number => {
+      return Math.ceil(text.length / 3);
+    };
+
+    // Validate and sanitize queries with length and token info
+    const queries = rawQueries.map((q: { text: string; tags: string[]; sourceUrl?: string }) => {
+      const text = String(q.text || '').slice(0, 500);
+      return {
+        text,
+        tags: Array.isArray(q.tags) ? q.tags.map((t: string) => String(t).slice(0, 50)).slice(0, 10) : [],
+        sourceUrl: q.sourceUrl && isValidUrl(q.sourceUrl) ? q.sourceUrl.trim() : undefined,
+        queryLength: text.length,
+        queryTokens: {
+          promptTokens: estimateTokens(systemPrompt + userPrompt),
+          completionTokens: estimateTokens(text),
+          totalTokens: estimateTokens(systemPrompt + userPrompt + text),
+        },
+      };
+    }).filter((q: { text: string }) => q.text.length > 0);
 
     return new Response(
       JSON.stringify({ 

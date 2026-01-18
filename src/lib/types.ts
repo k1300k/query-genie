@@ -9,6 +9,12 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface TokenUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+}
+
 export interface QueryItem {
   id: string;
   categoryId: string;
@@ -19,6 +25,10 @@ export interface QueryItem {
   answer?: string;
   sourceUrl?: string;
   aiEngine?: string;
+  queryLength?: number;
+  answerLength?: number;
+  queryTokens?: TokenUsage;
+  answerTokens?: TokenUsage;
   createdAt: string;
   updatedAt: string;
 }

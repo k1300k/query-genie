@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { QueryItem } from '@/lib/types';
-import { Cpu, MessageCircle, FileText, BarChart3 } from 'lucide-react';
+import { Cpu, MessageCircle, FileText, BarChart3, Hash } from 'lucide-react';
 
 interface AIStatsDashboardProps {
   queries: QueryItem[];
@@ -13,24 +13,47 @@ interface EngineStats {
   engine: string;
   queryCount: number;
   answerCount: number;
+  totalQueryChars: number;
+  totalAnswerChars: number;
+  totalQueryTokens: number;
+  totalAnswerTokens: number;
 }
 
 export function AIStatsDashboard({ queries }: AIStatsDashboardProps) {
   const stats = useMemo(() => {
-    const engineMap = new Map<string, { queryCount: number; answerCount: number }>();
+    const engineMap = new Map<string, { 
+      queryCount: number; 
+      answerCount: number; 
+      totalQueryChars: number;
+      totalAnswerChars: number;
+      totalQueryTokens: number;
+      totalAnswerTokens: number;
+    }>();
     
     queries.forEach(query => {
       // Count queries by AI engine (source === 'generated' means AI-generated query)
       if (query.source === 'generated' && query.aiEngine) {
-        const existing = engineMap.get(query.aiEngine) || { queryCount: 0, answerCount: 0 };
+        const existing = engineMap.get(query.aiEngine) || { 
+          queryCount: 0, answerCount: 0, 
+          totalQueryChars: 0, totalAnswerChars: 0,
+          totalQueryTokens: 0, totalAnswerTokens: 0 
+        };
         existing.queryCount++;
+        existing.totalQueryChars += query.queryLength || query.text.length;
+        existing.totalQueryTokens += query.queryTokens?.completionTokens || 0;
         engineMap.set(query.aiEngine, existing);
       }
       
       // Count answers by AI engine
       if (query.answer && query.aiEngine) {
-        const existing = engineMap.get(query.aiEngine) || { queryCount: 0, answerCount: 0 };
+        const existing = engineMap.get(query.aiEngine) || { 
+          queryCount: 0, answerCount: 0,
+          totalQueryChars: 0, totalAnswerChars: 0,
+          totalQueryTokens: 0, totalAnswerTokens: 0
+        };
         existing.answerCount++;
+        existing.totalAnswerChars += query.answerLength || query.answer.length;
+        existing.totalAnswerTokens += query.answerTokens?.completionTokens || 0;
         engineMap.set(query.aiEngine, existing);
       }
     });
@@ -41,6 +64,10 @@ export function AIStatsDashboard({ queries }: AIStatsDashboardProps) {
         engine: key,
         queryCount: value.queryCount,
         answerCount: value.answerCount,
+        totalQueryChars: value.totalQueryChars,
+        totalAnswerChars: value.totalAnswerChars,
+        totalQueryTokens: value.totalQueryTokens,
+        totalAnswerTokens: value.totalAnswerTokens,
       });
     });
 
@@ -52,8 +79,10 @@ export function AIStatsDashboard({ queries }: AIStatsDashboardProps) {
     const totalQueries = queries.filter(q => q.source === 'generated').length;
     const totalAnswers = queries.filter(q => q.answer).length;
     const manualQueries = queries.filter(q => q.source === 'manual').length;
-    return { totalQueries, totalAnswers, manualQueries };
-  }, [queries]);
+    const totalChars = stats.reduce((sum, s) => sum + s.totalQueryChars + s.totalAnswerChars, 0);
+    const totalTokens = stats.reduce((sum, s) => sum + s.totalQueryTokens + s.totalAnswerTokens, 0);
+    return { totalQueries, totalAnswers, manualQueries, totalChars, totalTokens };
+  }, [queries, stats]);
 
   const maxCount = useMemo(() => {
     return Math.max(...stats.map(s => Math.max(s.queryCount, s.answerCount)), 1);
@@ -102,6 +131,20 @@ export function AIStatsDashboard({ queries }: AIStatsDashboardProps) {
           </div>
         </div>
 
+        {/* Token & Char Summary */}
+        {(totals.totalChars > 0 || totals.totalTokens > 0) && (
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="p-2 rounded-lg bg-accent/50">
+              <p className="text-sm font-bold">{totals.totalChars.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">총 글자수</p>
+            </div>
+            <div className="p-2 rounded-lg bg-accent/50">
+              <p className="text-sm font-bold">{totals.totalTokens.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">총 토큰</p>
+            </div>
+          </div>
+        )}
+
         {/* Per-engine stats */}
         <div className="space-y-3">
           {stats.map(stat => (
@@ -136,6 +179,16 @@ export function AIStatsDashboard({ queries }: AIStatsDashboardProps) {
                   </div>
                   <span className="text-xs w-8 text-right">{stat.answerCount}</span>
                 </div>
+              </div>
+              {/* Char & Token stats per engine */}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground pl-5">
+                <span className="flex items-center gap-1">
+                  <Hash className="h-3 w-3" />
+                  {(stat.totalQueryChars + stat.totalAnswerChars).toLocaleString()}자
+                </span>
+                <span>
+                  {(stat.totalQueryTokens + stat.totalAnswerTokens).toLocaleString()}토큰
+                </span>
               </div>
             </div>
           ))}
