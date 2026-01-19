@@ -79,10 +79,63 @@ export function AIStatsDashboard({ queries }: AIStatsDashboardProps) {
     const totalQueries = queries.filter(q => q.source === 'generated').length;
     const totalAnswers = queries.filter(q => q.answer).length;
     const manualQueries = queries.filter(q => q.source === 'manual').length;
-    const totalChars = stats.reduce((sum, s) => sum + s.totalQueryChars + s.totalAnswerChars, 0);
-    const totalTokens = stats.reduce((sum, s) => sum + s.totalQueryTokens + s.totalAnswerTokens, 0);
-    return { totalQueries, totalAnswers, manualQueries, totalChars, totalTokens };
+    const totalQueryChars = stats.reduce((sum, s) => sum + s.totalQueryChars, 0);
+    const totalAnswerChars = stats.reduce((sum, s) => sum + s.totalAnswerChars, 0);
+    const totalQueryTokens = stats.reduce((sum, s) => sum + s.totalQueryTokens, 0);
+    const totalAnswerTokens = stats.reduce((sum, s) => sum + s.totalAnswerTokens, 0);
+    const totalChars = totalQueryChars + totalAnswerChars;
+    const totalTokens = totalQueryTokens + totalAnswerTokens;
+    return { 
+      totalQueries, totalAnswers, manualQueries, 
+      totalChars, totalTokens,
+      totalQueryChars, totalAnswerChars,
+      totalQueryTokens, totalAnswerTokens
+    };
   }, [queries, stats]);
+
+  // Length-based token statistics
+  const lengthStats = useMemo(() => {
+    const queryLengths = queries
+      .filter(q => q.source === 'generated' && q.queryLength && q.queryTokens?.completionTokens)
+      .map(q => ({ length: q.queryLength!, tokens: q.queryTokens!.completionTokens! }));
+    
+    const answerLengths = queries
+      .filter(q => q.answer && q.answerLength && q.answerTokens?.completionTokens)
+      .map(q => ({ length: q.answerLength!, tokens: q.answerTokens!.completionTokens! }));
+
+    const avgQueryCharsPerToken = queryLengths.length > 0 
+      ? queryLengths.reduce((sum, q) => sum + q.length, 0) / queryLengths.reduce((sum, q) => sum + q.tokens, 0)
+      : 0;
+    
+    const avgAnswerCharsPerToken = answerLengths.length > 0
+      ? answerLengths.reduce((sum, q) => sum + q.length, 0) / answerLengths.reduce((sum, q) => sum + q.tokens, 0)
+      : 0;
+
+    const avgQueryLength = queryLengths.length > 0
+      ? queryLengths.reduce((sum, q) => sum + q.length, 0) / queryLengths.length
+      : 0;
+
+    const avgAnswerLength = answerLengths.length > 0
+      ? answerLengths.reduce((sum, q) => sum + q.length, 0) / answerLengths.length
+      : 0;
+
+    const avgQueryTokens = queryLengths.length > 0
+      ? queryLengths.reduce((sum, q) => sum + q.tokens, 0) / queryLengths.length
+      : 0;
+
+    const avgAnswerTokens = answerLengths.length > 0
+      ? answerLengths.reduce((sum, q) => sum + q.tokens, 0) / answerLengths.length
+      : 0;
+
+    return {
+      avgQueryCharsPerToken,
+      avgAnswerCharsPerToken,
+      avgQueryLength,
+      avgAnswerLength,
+      avgQueryTokens,
+      avgAnswerTokens
+    };
+  }, [queries]);
 
   const maxCount = useMemo(() => {
     return Math.max(...stats.map(s => Math.max(s.queryCount, s.answerCount)), 1);
@@ -133,14 +186,85 @@ export function AIStatsDashboard({ queries }: AIStatsDashboardProps) {
 
         {/* Token & Char Summary */}
         {(totals.totalChars > 0 || totals.totalTokens > 0) && (
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="p-2 rounded-lg bg-accent/50">
-              <p className="text-sm font-bold">{totals.totalChars.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">총 글자수</p>
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="p-2 rounded-lg bg-accent/50">
+                <p className="text-sm font-bold">{totals.totalChars.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">총 글자수</p>
+              </div>
+              <div className="p-2 rounded-lg bg-accent/50">
+                <p className="text-sm font-bold">{totals.totalTokens.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">총 토큰</p>
+              </div>
             </div>
-            <div className="p-2 rounded-lg bg-accent/50">
-              <p className="text-sm font-bold">{totals.totalTokens.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">총 토큰</p>
+            
+            {/* Query vs Answer breakdown */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 rounded-lg bg-primary/5 space-y-1">
+                <p className="font-medium text-primary text-center">질의어</p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">글자</span>
+                  <span>{totals.totalQueryChars.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">토큰</span>
+                  <span>{totals.totalQueryTokens.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="p-2 rounded-lg bg-secondary/50 space-y-1">
+                <p className="font-medium text-center">답변</p>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">글자</span>
+                  <span>{totals.totalAnswerChars.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">토큰</span>
+                  <span>{totals.totalAnswerTokens.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Length-based Token Efficiency */}
+        {(lengthStats.avgQueryCharsPerToken > 0 || lengthStats.avgAnswerCharsPerToken > 0) && (
+          <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+            <p className="text-xs font-medium text-center text-muted-foreground">📊 길이별 토큰 효율</p>
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              {lengthStats.avgQueryCharsPerToken > 0 && (
+                <div className="space-y-1">
+                  <p className="font-medium text-primary">질의어 평균</p>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">길이</span>
+                    <span>{lengthStats.avgQueryLength.toFixed(1)}자</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">토큰</span>
+                    <span>{lengthStats.avgQueryTokens.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between text-primary">
+                    <span>글자/토큰</span>
+                    <span className="font-medium">{lengthStats.avgQueryCharsPerToken.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+              {lengthStats.avgAnswerCharsPerToken > 0 && (
+                <div className="space-y-1">
+                  <p className="font-medium">답변 평균</p>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">길이</span>
+                    <span>{lengthStats.avgAnswerLength.toFixed(1)}자</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">토큰</span>
+                    <span>{lengthStats.avgAnswerTokens.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>글자/토큰</span>
+                    <span className="font-medium">{lengthStats.avgAnswerCharsPerToken.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
