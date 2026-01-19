@@ -8,7 +8,7 @@ import { QueryEditorModal } from '@/components/query/QueryEditorModal';
 import { CategoryModal } from '@/components/query/CategoryModal';
 import { AISettingsModal, AISettings, AIProvider } from '@/components/query/AISettingsModal';
 import { AIStatsDashboard } from '@/components/query/AIStatsDashboard';
-import { useQueryStore } from '@/hooks/useQueryStore';
+import { useSupabaseStore } from '@/hooks/useSupabaseStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { QueryItem, Category, TokenUsage } from '@/lib/types';
@@ -63,7 +63,8 @@ const Index = () => {
     getQueriesByCategory,
     exportQueries,
     importQueriesFromCSV,
-  } = useQueryStore();
+    isLoading: storeLoading,
+  } = useSupabaseStore(user?.id);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [queryModalOpen, setQueryModalOpen] = useState(false);
@@ -348,11 +349,16 @@ const Index = () => {
     toast.success(`${all ? '전체 카테고리' : '현재 카테고리'} ${format.toUpperCase()} 파일로 내보내기 완료`);
   };
 
-  // Show loading state while checking auth
-  if (authLoading) {
+  // Show loading state while checking auth or loading data
+  if (authLoading || storeLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            {authLoading ? '인증 확인 중...' : '데이터 불러오는 중...'}
+          </p>
+        </div>
       </div>
     );
   }
@@ -428,8 +434,8 @@ const Index = () => {
               setQueryModalOpen(true);
             }}
             onExport={handleExport}
-            onImportCSV={(content) => {
-              const result = importQueriesFromCSV(content);
+            onImportCSV={async (content) => {
+              const result = await importQueriesFromCSV(content);
               if (result.errors.length > 0) {
                 toast.warning(`${result.imported.length}개 가져옴, ${result.errors.length}개 오류`);
               } else {
