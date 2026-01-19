@@ -14,7 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      categories: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      queries: {
+        Row: {
+          answer: string | null
+          answer_engine: string | null
+          answer_length: number | null
+          answer_tokens: number | null
+          category_id: string | null
+          created_at: string
+          engine: string | null
+          id: string
+          query: string
+          query_length: number | null
+          query_tokens: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          answer_engine?: string | null
+          answer_length?: number | null
+          answer_tokens?: number | null
+          category_id?: string | null
+          created_at?: string
+          engine?: string | null
+          id?: string
+          query: string
+          query_length?: number | null
+          query_tokens?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          answer_engine?: string | null
+          answer_length?: number | null
+          answer_tokens?: number | null
+          category_id?: string | null
+          created_at?: string
+          engine?: string | null
+          id?: string
+          query?: string
+          query_length?: number | null
+          query_tokens?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "queries_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
